@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>意识晶体 · Consciousness Crystal</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Noto+Serif+SC:wght@200;300;400&family=Share+Tech+Mono&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;}
+body{
+  background:#03060e;
+  font-family:'Noto Serif SC',serif;
+  -webkit-font-smoothing:antialiased;
+  cursor:crosshair;
+  user-select:none;
+  --ink:        rgba(224,238,255,.85);
+  --ink-soft:   rgba(176,200,240,.6);
+  --ink-faint:  rgba(156,188,228,.34);
+  --ink-trace:  rgba(150,182,222,.2);
+  --accent:     rgba(196,176,255,.82);
+  --crystal-hi: #ecdcff;
+  --crystal-mid:#9a7fe0;
+}
+
+canvas#scene{position:fixed;inset:0;width:100%;height:100%;z-index:1;}
+
+/* orbiting text layer */
+#orbit{position:fixed;inset:0;z-index:2;pointer-events:none;}
+#orbit .tok{
+  position:absolute; top:0; left:0;
+  font-family:'Noto Serif SC',serif; font-weight:300;
+  font-size:17px; letter-spacing:.04em;
+  color:var(--ink);
+  white-space:nowrap;
+  will-change:transform,opacity;
+  text-shadow:0 0 12px rgba(170,150,255,.45);
+}
+
+/* clickable crystal hit-zone */
+#crystalHit{
+  position:fixed; left:50%; top:50%; z-index:3;
+  width:210px; height:210px;
+  transform:translate(-50%,-50%);
+  cursor:pointer;
+}
+
+/* ── chrome ── */
+.title{
+  position:fixed; top:26px; left:26px; z-index:20;
+  pointer-events:none; display:flex; flex-direction:column; gap:7px;
+  opacity:0; animation:fadeIn 1.8s .4s ease forwards;
+}
+.t-zh{
+  font-size:1.18rem; font-weight:300; letter-spacing:.38em;
+  color:var(--ink); line-height:1; display:flex; align-items:center; gap:10px;
+  white-space:nowrap;
+}
+.t-zh .dot{ width:3.5px; height:3.5px; border-radius:50%; background:var(--accent); opacity:.85; }
+.t-en{
+  font-family:'Cormorant Garamond',serif; font-style:italic; font-weight:300;
+  font-size:.96rem; letter-spacing:.07em; color:var(--ink-soft); line-height:1;
+}
+.t-meta{
+  font-family:'Share Tech Mono',monospace; font-size:.52rem; letter-spacing:.32em;
+  color:var(--ink-faint); margin-top:2px;
+}
+
+.back{
+  position:fixed; top:28px; right:26px; z-index:30;
+  font-family:'Share Tech Mono',monospace; font-size:.56rem; letter-spacing:.28em;
+  color:var(--ink-faint); text-decoration:none; transition:color .3s;
+}
+.back:hover{ color:var(--accent); }
+
+.audio-tg{
+  position:fixed; right:26px; top:58px; z-index:30;
+  width:22px; height:22px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Share Tech Mono',monospace; font-size:.7rem;
+  color:var(--ink-faint); transition:color .4s;
+}
+.audio-tg::before{ content:'◌'; }
+.audio-tg.on::before{ content:'◉'; color:var(--accent); }
+.audio-tg:hover{ color:var(--accent); }
+
+/* ── writing dock ── */
+.dock{
+  position:fixed; left:50%; bottom:64px; z-index:25;
+  transform:translateX(-50%);
+  width:min(620px,86vw);
+  display:flex; flex-direction:column; align-items:center; gap:16px;
+  opacity:0; animation:fadeIn 2s 1s ease forwards;
+}
+.dock-row{
+  width:100%; display:flex; align-items:flex-end; gap:14px;
+  border-bottom:1px solid var(--ink-trace);
+  padding-bottom:9px; transition:border-color .6s ease;
+}
+.dock-row:focus-within{ border-bottom-color:var(--accent); }
+#field{
+  flex:1; resize:none; border:none; outline:none; background:transparent;
+  font-family:'Noto Serif SC',serif; font-weight:300;
+  font-size:1.02rem; line-height:1.7; letter-spacing:.04em;
+  color:var(--ink);
+  max-height:120px; overflow-y:auto;
+}
+#field::placeholder{ color:var(--ink-faint); font-weight:200; }
+#field::-webkit-scrollbar{ width:0; }
+
+.release{
+  appearance:none; border:1px solid var(--ink-trace); background:transparent;
+  cursor:pointer; flex-shrink:0;
+  padding:8px 16px 7px; border-radius:2px;
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  color:var(--ink-soft); transition:.4s ease; line-height:1;
+}
+.release .zh{ font-family:'Noto Serif SC',serif; font-weight:300; font-size:.84rem; letter-spacing:.22em; }
+.release .en{ font-family:'Share Tech Mono',monospace; font-size:.44rem; letter-spacing:.2em; color:var(--ink-faint); transition:color .4s; }
+.release:hover{ border-color:var(--accent); color:var(--ink); }
+.release:hover .en{ color:var(--accent); }
+.release:disabled{ opacity:.32; cursor:default; }
+.release:disabled:hover{ border-color:var(--ink-trace); color:var(--ink-soft); }
+.release:disabled:hover .en{ color:var(--ink-faint); }
+
+.note{
+  font-family:'Share Tech Mono',monospace; font-size:.5rem; letter-spacing:.26em;
+  color:var(--ink-faint); text-align:center; line-height:1.8;
+}
+
+/* hint to absorb */
+.hint{
+  position:fixed; left:50%; bottom:24px; z-index:24;
+  transform:translateX(-50%);
+  display:flex; align-items:center; gap:9px;
+  font-family:'Share Tech Mono',monospace; font-size:.52rem; letter-spacing:.24em;
+  color:var(--ink-faint); pointer-events:none;
+  opacity:0; transition:opacity 1.2s ease;
+}
+.hint.show{ opacity:1; }
+.hint .pulse{ width:4px; height:4px; border-radius:50%; background:var(--accent); animation:pulse 2.8s ease-in-out infinite; }
+@keyframes pulse{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.9;transform:scale(1.6)}}
+
+/* stillness line after absorb */
+.still{
+  position:fixed; left:50%; top:calc(50% + 150px); z-index:24;
+  transform:translateX(-50%); text-align:center;
+  pointer-events:none; opacity:0; width:90%;
+}
+.still.show{ animation:stillFade 6s ease forwards; }
+.still .zh{ font-family:'Noto Serif SC',serif; font-weight:200; font-size:1.05rem; letter-spacing:.4em; color:var(--ink-soft); }
+.still .en{ font-family:'Cormorant Garamond',serif; font-style:italic; font-size:.86rem; letter-spacing:.1em; color:var(--ink-faint); margin-top:10px; }
+@keyframes stillFade{ 0%{opacity:0} 22%{opacity:1} 74%{opacity:1} 100%{opacity:0} }
+
+@keyframes fadeIn{ from{opacity:0} to{opacity:1} }
+
+@media (max-width:600px){
+  .title{ top:18px; left:18px; }
+  .t-zh{ font-size:1rem; letter-spacing:.3em; }
+  .dock{ bottom:48px; gap:12px; }
+  #field{ font-size:.96rem; }
+}
+</style>
+<script src="page-transition.js"></script>
+</head>
+<body>
+
+<canvas id="scene"></canvas>
+<div id="orbit"></div>
+<div id="crystalHit" title="轻触，让它们消失"></div>
+
+<div class="title">
+  <div class="t-zh">意<span class="dot"></span>识<span class="dot"></span>晶<span class="dot"></span>体</div>
+  <div class="t-en">Consciousness Crystal</div>
+  <div class="t-meta">N° 001 · LUCID · 山脊</div>
+</div>
+
+<a class="back" href="Spirit Map.html">← SPIRIT MAP</a>
+<div class="audio-tg" id="audioTg" title="环境音 / Ambient"></div>
+
+<div class="dock">
+  <div class="dock-row">
+    <textarea id="field" rows="1" placeholder="把困住你的，写在这里……" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
+    <button class="release" id="releaseBtn" disabled>
+      <span class="zh">释入</span>
+      <span class="en">RELEASE</span>
+    </button>
+  </div>
+  <div class="note">此处不留存任何文字　·　nothing here is ever stored</div>
+</div>
+
+<div class="hint" id="hint"><span class="pulse"></span>轻触晶体，让它们消失　·　touch the crystal to let go</div>
+
+<div class="still" id="still">
+  <div class="zh">都还给宇宙了</div>
+  <div class="en">given back to the deep — far, and not returning</div>
+</div>
+
+<script>
+/* ════════════════════════ setup ════════════════════════ */
+const cv = document.getElementById('scene');
+const ctx = cv.getContext('2d');
+const orbit = document.getElementById('orbit');
+const field = document.getElementById('field');
+const releaseBtn = document.getElementById('releaseBtn');
+const crystalHit = document.getElementById('crystalHit');
+const hintEl = document.getElementById('hint');
+const stillEl = document.getElementById('still');
+
+let W = 0, H = 0, cx = 0, cy = 0, DPR = 1;
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  cx = W/2; cy = H/2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ════════════════════════ starfield ════════════════════════ */
+const stars = [];
+(function buildStars(){
+  const n = Math.round((W*H)/9000);
+  for(let i=0;i<Math.max(120,n);i++){
+    stars.push({
+      x: Math.random(), y: Math.random(),
+      r: Math.random()*1.1 + .2,
+      base: Math.random()*.4 + .15,
+      tw: Math.random()*Math.PI*2,
+      sp: Math.random()*.7 + .25
+    });
+  }
+})();
+
+/* ════════════════════════ orbit model ════════════════════════
+   spiral:  angle = t ,  radius = R0 + K*t
+   each token rides a position t; a thought's tokens start tightly
+   packed (a ribbon) then disperse over one breath cycle.
+*/
+const R0 = 98, K = 5.4;
+const MIN_GAP = 0.150;   // ribbon spacing (radians)
+const MAX_GAP = 0.420;   // dispersed spacing
+const ROT_SPEED = 0.028; // rad / s — gentle drift
+const BREATH_PERIOD = 7.2;
+const BREAK_TIME = 5.4;   // ribbon -> dispersed
+const THOUGHT_GAP = 0.55; // angular gap between successive thoughts
+const MAX_TOKENS = 420;
+
+let rotation = 0;
+let breathPhase = 0;
+let nextT = 0.6;          // where the next thought begins
+const thoughts = [];      // {tokens:[{el,ch,i}], n, startT, born, phase}
+
+let mode = 'idle';        // 'idle' | 'absorbing' | 'casting'
+let absorb = 0;           // 0..1  inward collapse
+let cast = 0;             // 0..1  outward release
+let flare = 0;            // crystal flare 0..1
+const particles = [];     // inward pull streaks
+const casts = [];         // outward light cast into deep space
+
+/* ── merkaba (star tetrahedron) geometry ── */
+let merkSpin = 0;
+const TILT = 0.46;
+function makeTetra(up){
+  const verts = [{x:0, y: up? 1.14 : -1.14, z:0}];
+  const baseY = up ? -0.5 : 0.5;
+  const baseR = 0.98;
+  const off = up ? Math.PI/2 : Math.PI/2 + Math.PI/3;
+  for(let k=0;k<3;k++){
+    const ang = off + k*2*Math.PI/3;
+    verts.push({x:Math.cos(ang)*baseR, y:baseY, z:Math.sin(ang)*baseR});
+  }
+  return verts;
+}
+const TET_UP = makeTetra(true), TET_DN = makeTetra(false);
+const T_EDGES = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]];
+const T_FACES = [[0,1,2],[0,1,3],[0,2,3],[1,2,3]];
+function projV(p, scale){
+  const cyy = Math.cos(merkSpin), syy = Math.sin(merkSpin);
+  let x = p.x*cyy + p.z*syy;
+  let z = -p.x*syy + p.z*cyy;
+  let y = p.y;
+  const cxx = Math.cos(TILT), sxx = Math.sin(TILT);
+  const y2 = y*cxx - z*sxx;
+  const z2 = y*sxx + z*cxx;
+  const persp = 2.6/(2.6 - z2*0.34);
+  return { x:x*scale*persp, y:y2*scale*persp, z:z2 };
+}
+
+/* tokenizer: CJK & punctuation -> single glyph, latin/number runs -> word */
+function tokenize(str){
+  const out = [];
+  let buf = '';
+  const flush = ()=>{ if(buf){ out.push(buf); buf=''; } };
+  for(const ch of str){
+    if(/\s/.test(ch)){ flush(); continue; }
+    if(/[A-Za-z0-9'’\-]/.test(ch)){ buf += ch; }
+    else { flush(); out.push(ch); }
+  }
+  flush();
+  return out;
+}
+
+function totalTokens(){ return thoughts.reduce((s,t)=>s+t.n,0); }
+
+function release(){
+  const raw = field.value.trim();
+  if(!raw) return;
+  if(mode==='absorbing') return;
+  const toks = tokenize(raw);
+  if(!toks.length) return;
+  if(totalTokens() + toks.length > MAX_TOKENS) return;
+
+  const startT = nextT;
+  const th = { tokens:[], n:toks.length, startT, born:performance.now()/1000, phase:Math.random()*Math.PI*2 };
+  toks.forEach((ch,i)=>{
+    const el = document.createElement('span');
+    el.className = 'tok';
+    el.textContent = ch;
+    orbit.appendChild(el);
+    th.tokens.push({ el, ch, i });
+  });
+  thoughts.push(th);
+  // advance the spiral so the next thought winds further out
+  nextT = startT + (toks.length-1)*MAX_GAP + THOUGHT_GAP;
+
+  field.value = '';
+  autoGrow();
+  syncControls();
+}
+
+function syncControls(){
+  releaseBtn.disabled = field.value.trim().length === 0;
+  const has = totalTokens() > 0 && mode==='idle';
+  hintEl.classList.toggle('show', has);
+}
+
+function startAbsorb(){
+  if(mode==='absorbing' || totalTokens()===0) return;
+  mode = 'absorbing';
+  absorb = 0;
+  hintEl.classList.remove('show');
+  if(audioOn) playBell();
+  // spawn pull-in streaks
+  for(let i=0;i<48;i++){
+    const a = Math.random()*Math.PI*2;
+    const r = 120 + Math.random()*Math.min(W,H)*0.32;
+    particles.push({ a, r, r0:r, sp:.65+Math.random()*.6, hue:265+Math.random()*40, alpha:0 });
+  }
+}
+
+function clearThoughts(){
+  thoughts.forEach(t=>t.tokens.forEach(tk=>tk.el.remove()));
+  thoughts.length = 0;
+  nextT = 0.6;
+}
+
+// burst of light flung outward into the deep universe
+function spawnCast(){
+  const now = performance.now()/1000;
+  for(let i=0;i<96;i++){
+    const a = Math.random()*Math.PI*2;
+    casts.push({
+      a, r: 4 + Math.random()*12,
+      sp: 240 + Math.random()*640,
+      hue: 256 + Math.random()*48,
+      size: .7 + Math.random()*1.9,
+      born: now,
+      life: 2.1 + Math.random()*1.6
+    });
+  }
+}
+
+/* ════════════════════════ render loop ════════════════════════ */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min((now - last)/1000, .05);
+  last = now;
+
+  rotation += ROT_SPEED * dt;
+  breathPhase += (dt / BREATH_PERIOD) * Math.PI * 2;
+  const breath = Math.sin(breathPhase);              // -1..1
+  const breathScale = 1 + 0.045 * breath;            // radius modulation
+
+  // merkaba spins gently, winds up as it gathers, eases as it releases
+  let spinRate = 0.34;
+  if(mode==='absorbing') spinRate += absorb*2.6;
+  else if(mode==='casting') spinRate += (1-cast)*2.6;
+  merkSpin += spinRate * dt;
+
+  if(mode==='absorbing'){
+    absorb = Math.min(1, absorb + dt/2.9);            // slow inward collapse
+    flare = absorb;
+    if(absorb >= 1){
+      // collapse complete — fling everything outward into the deep
+      mode = 'casting'; cast = 0;
+      clearThoughts();
+      particles.length = 0;
+      spawnCast();
+      stillEl.classList.remove('show'); void stillEl.offsetWidth;
+      stillEl.classList.add('show');
+      syncControls();
+    }
+  } else if(mode==='casting'){
+    cast = Math.min(1, cast + dt/2.4);
+    flare = Math.max(0, 1 - cast);
+    if(cast >= 1){ mode = 'idle'; absorb = 0; cast = 0; flare = 0; }
+  } else {
+    flare *= 0.9;
+  }
+
+  drawScene(dt, breath, breathScale);
+  layoutTokens(breath, breathScale);
+  requestAnimationFrame(frame);
+}
+
+function drawScene(dt, breath, breathScale){
+  ctx.clearRect(0,0,W,H);
+
+  // stars
+  for(const s of stars){
+    s.tw += s.sp * 0.016;
+    const op = s.base + Math.sin(s.tw)*0.18;
+    ctx.globalAlpha = Math.max(0, op);
+    ctx.fillStyle = '#dfe8ff';
+    ctx.beginPath();
+    ctx.arc(s.x*W, s.y*H, s.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // absorb streaks pulled toward the shard
+  if(particles.length){
+    for(const p of particles){
+      p.r -= p.sp * (40 + 520*absorb) * 0.016;
+      p.a += 0.04 * (1+absorb);
+      p.alpha = Math.min(1, p.alpha + 0.06);
+      if(p.r < 8) p.r = 8;
+      const x = cx + Math.cos(p.a)*p.r;
+      const y = cy + Math.sin(p.a)*p.r;
+      const tail = 10 + 30*absorb;
+      const x2 = cx + Math.cos(p.a)*(p.r+tail);
+      const y2 = cy + Math.sin(p.a)*(p.r+tail);
+      const g = ctx.createLinearGradient(x,y,x2,y2);
+      g.addColorStop(0, `hsla(${p.hue},80%,82%,${0.7*p.alpha*(1-absorb*0.2)})`);
+      g.addColorStop(1, `hsla(${p.hue},80%,82%,0)`);
+      ctx.strokeStyle = g; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x2,y2); ctx.stroke();
+    }
+  }
+
+  // outward light cast into deep space
+  if(casts.length){
+    const tn = performance.now()/1000;
+    ctx.globalCompositeOperation = 'lighter';
+    for(let i=casts.length-1;i>=0;i--){
+      const c = casts[i];
+      c.r += c.sp * dt;
+      const age = tn - c.born;
+      const k = 1 - age/c.life;
+      if(k <= 0){ casts.splice(i,1); continue; }
+      const x  = cx + Math.cos(c.a)*c.r,  y  = cy + Math.sin(c.a)*c.r;
+      const tl = c.sp*0.05;
+      const x2 = cx + Math.cos(c.a)*(c.r - tl), y2 = cy + Math.sin(c.a)*(c.r - tl);
+      const g = ctx.createLinearGradient(x,y,x2,y2);
+      g.addColorStop(0, `hsla(${c.hue},88%,86%,${0.9*k})`);
+      g.addColorStop(1, `hsla(${c.hue},88%,86%,0)`);
+      ctx.strokeStyle = g; ctx.lineWidth = c.size;
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x2,y2); ctx.stroke();
+      ctx.fillStyle = `hsla(${c.hue},92%,92%,${k})`;
+      ctx.beginPath(); ctx.arc(x,y,c.size*0.9,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  drawCrystal(breath);
+}
+
+/* the floating merkaba — star tetrahedron */
+function drawCrystal(breath){
+  const pulse = 1 + 0.04*breath + 0.12*flare;
+  const scale = 60 * pulse;
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  // soft halo
+  const haloR = 150 + 90*flare;
+  const halo = ctx.createRadialGradient(0,0,4, 0,0,haloR);
+  halo.addColorStop(0, `rgba(206,184,255,${0.20 + 0.55*flare})`);
+  halo.addColorStop(0.4, `rgba(150,120,230,${0.09 + 0.22*flare})`);
+  halo.addColorStop(1, 'rgba(60,30,120,0)');
+  ctx.fillStyle = halo;
+  ctx.beginPath(); ctx.arc(0,0,haloR,0,Math.PI*2); ctx.fill();
+
+  ctx.globalCompositeOperation = 'lighter';
+  const tetras = [
+    { v:TET_UP, base:[150,128,255] },
+    { v:TET_DN, base:[212,192,255] }
+  ];
+  for(const t of tetras){
+    const P = t.v.map(p=>projV(p, scale));
+    // translucent faces
+    for(const f of T_FACES){
+      const za = (P[f[0]].z + P[f[1]].z + P[f[2]].z)/3;
+      const lit = Math.max(0, 0.5 + za*0.4);
+      const a = 0.04 + 0.07*lit + 0.11*flare;
+      ctx.fillStyle = `rgba(${t.base[0]},${t.base[1]},${t.base[2]},${a})`;
+      ctx.beginPath();
+      ctx.moveTo(P[f[0]].x, P[f[0]].y);
+      ctx.lineTo(P[f[1]].x, P[f[1]].y);
+      ctx.lineTo(P[f[2]].x, P[f[2]].y);
+      ctx.closePath(); ctx.fill();
+    }
+    // glowing edges
+    ctx.shadowColor = 'rgba(190,160,255,0.9)';
+    ctx.shadowBlur = 10 + 26*flare;
+    ctx.lineWidth = 1.1;
+    for(const e of T_EDGES){
+      const za = (P[e[0]].z + P[e[1]].z)/2;
+      const op = Math.min(1, 0.5 + 0.35*((za+1.2)/2.4) + 0.32*flare);
+      ctx.strokeStyle = `rgba(238,226,255,${op})`;
+      ctx.beginPath(); ctx.moveTo(P[e[0]].x,P[e[0]].y); ctx.lineTo(P[e[1]].x,P[e[1]].y); ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    // vertices
+    for(const p of P){
+      ctx.fillStyle = `rgba(255,255,255,${0.65 + 0.35*flare})`;
+      ctx.beginPath(); ctx.arc(p.x,p.y,1.7,0,Math.PI*2); ctx.fill();
+    }
+  }
+
+  // bright core
+  const cr = 26 + 80*flare;
+  const core = ctx.createRadialGradient(0,0,0, 0,0,cr);
+  core.addColorStop(0, `rgba(255,255,255,${0.5 + 0.5*flare})`);
+  core.addColorStop(1, 'rgba(214,196,255,0)');
+  ctx.fillStyle = core;
+  ctx.beginPath(); ctx.arc(0,0,cr,0,Math.PI*2); ctx.fill();
+
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.restore();
+}
+
+/* place orbiting tokens along the spiral */
+function layoutTokens(breath, breathScale){
+  const tnow = performance.now()/1000;
+  for(const th of thoughts){
+    const age = tnow - th.born;
+    let disperse = Math.min(1, age / BREAK_TIME);
+    disperse = disperse*disperse*(3-2*disperse); // smoothstep
+    const gap = MIN_GAP + (MAX_GAP-MIN_GAP)*disperse;
+    // gentle breathing wobble on spacing
+    const wobble = 1 + 0.10*Math.sin(breathPhase + th.phase);
+
+    for(const tk of th.tokens){
+      let t = th.startT + tk.i * gap * wobble;
+      let a, r, op = 1, extra = 0;
+      if(mode==='absorbing'){
+        const k = 1 - absorb;
+        t = t * k;                              // collapse toward center
+        extra = absorb * (6 + tk.i*0.04);       // accelerate spin inward
+        op = Math.max(0, 1 - absorb*1.25);
+      }
+      a = t + rotation + extra;
+      r = (R0 + K*t) * breathScale * (mode==='absorbing' ? (1-absorb*0.96) : 1);
+
+      // fade-in when newly released
+      const fadeIn = Math.min(1, age/1.1);
+      op *= fadeIn;
+
+      const x = cx + Math.cos(a)*r;
+      const y = cy + Math.sin(a)*r;
+      const deg = (a + Math.PI/2) * 180/Math.PI;
+      tk.el.style.transform = `translate(${x}px,${y}px) translate(-50%,-50%) rotate(${deg}deg)`;
+      tk.el.style.opacity = op.toFixed(3);
+    }
+  }
+}
+
+requestAnimationFrame(frame);
+
+/* ════════════════════════ input wiring ════════════════════════ */
+function autoGrow(){
+  field.style.height = 'auto';
+  field.style.height = Math.min(field.scrollHeight, 120) + 'px';
+}
+field.addEventListener('input', ()=>{ autoGrow(); syncControls(); });
+// Enter releases; Shift+Enter = newline
+field.addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); release(); }
+});
+releaseBtn.addEventListener('click', release);
+crystalHit.addEventListener('click', startAbsorb);
+
+/* ════════════════════════ audio ════════════════════════ */
+let audioOn = false, actx = null, drone = null;
+const audioTg = document.getElementById('audioTg');
+
+function ensureCtx(){
+  if(!actx){ actx = new (window.AudioContext||window.webkitAudioContext)(); }
+  if(actx.state==='suspended') actx.resume();
+}
+function startDrone(){
+  if(drone) return;
+  const master = actx.createGain();
+  master.gain.value = 0.0; master.connect(actx.destination);
+  const lp = actx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=420; lp.connect(master);
+  const o1 = actx.createOscillator(); o1.type='sine'; o1.frequency.value=110;
+  const o2 = actx.createOscillator(); o2.type='sine'; o2.frequency.value=110*1.5;
+  const o3 = actx.createOscillator(); o3.type='sine'; o3.frequency.value=55;
+  const g2 = actx.createGain(); g2.gain.value=0.4; o2.connect(g2).connect(lp);
+  o1.connect(lp); o3.connect(lp);
+  // slow breathing LFO on amplitude
+  const lfo = actx.createOscillator(); lfo.type='sine'; lfo.frequency.value=1/BREATH_PERIOD;
+  const lfoG = actx.createGain(); lfoG.gain.value=0.012;
+  lfo.connect(lfoG).connect(master.gain);
+  o1.start(); o2.start(); o3.start(); lfo.start();
+  master.gain.linearRampToValueAtTime(0.045, actx.currentTime+3);
+  drone = { master };
+}
+function stopDrone(){
+  if(!drone) return;
+  drone.master.gain.linearRampToValueAtTime(0.0001, actx.currentTime+1.2);
+}
+function playBell(){
+  if(!actx) return;
+  const t0 = actx.currentTime;
+  const freqs = [528, 660, 792, 1056];
+  const out = actx.createGain(); out.gain.value=0.0001; out.connect(actx.destination);
+  out.gain.setValueAtTime(0.0001, t0);
+  out.gain.exponentialRampToValueAtTime(0.16, t0+0.04);
+  out.gain.exponentialRampToValueAtTime(0.0001, t0+3.4);
+  freqs.forEach((f,i)=>{
+    const o = actx.createOscillator(); o.type='sine'; o.frequency.value=f;
+    const g = actx.createGain(); g.gain.value = 1/(i+1.4);
+    o.connect(g).connect(out);
+    o.start(t0); o.stop(t0+3.6);
+  });
+}
+audioTg.addEventListener('click', ()=>{
+  ensureCtx();
+  audioOn = !audioOn;
+  audioTg.classList.toggle('on', audioOn);
+  if(audioOn) startDrone(); else stopDrone();
+});
+
+window.addEventListener('resize', ()=>{ /* center recomputed in resize() */ });
+syncControls();
+</script>
+</body>
+</html>

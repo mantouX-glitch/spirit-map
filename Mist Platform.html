@@ -1,0 +1,2256 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>云雾站台 · Mist Platform</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Noto+Serif+SC:wght@200;300;400&family=Share+Tech+Mono&display=swap');
+
+:root{
+  --ink:        rgba(28,36,50,.82);
+  --ink-soft:   rgba(35,45,62,.6);
+  --ink-faint:  rgba(45,58,78,.32);
+  --ink-trace:  rgba(60,72,92,.18);
+  --warm:       rgba(140,108,52,.62);
+
+  /* Neon palette */
+  --neon-cyan:   190,235,255;
+  --neon-mint:   170,255,220;
+  --neon-amber:  255,210,140;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;}
+body{
+  background:#c4cdd8;
+  font-family:'Noto Serif SC',serif;
+  -webkit-font-smoothing:antialiased;
+  cursor:default;
+}
+
+#c, #fog{position:fixed;inset:0;width:100%;height:100%;}
+#c{z-index:1;}
+#fog{z-index:2; pointer-events:none;}
+
+/* ────────────────────────────────────
+   TITLE (horizontal)
+──────────────────────────────────── */
+.title{
+  position:fixed; top:26px; left:26px; z-index:20;
+  pointer-events:none;
+  display:flex; flex-direction:column; gap:7px;
+}
+.t-zh{
+  font-family:'Noto Serif SC',serif;
+  font-size:1.18rem; font-weight:300;
+  letter-spacing:.38em;
+  color:var(--ink);
+  line-height:1;
+  display:flex; align-items:center; gap:10px;
+}
+.t-zh .dot{
+  display:inline-block; width:3.5px; height:3.5px; border-radius:50%;
+  background:var(--warm); opacity:.7;
+  margin-left:-4px;
+}
+.t-en{
+  font-family:'Cormorant Garamond',serif;
+  font-style:italic; font-weight:300;
+  font-size:.96rem; letter-spacing:.07em;
+  color:var(--ink-soft); line-height:1;
+}
+.t-meta{
+  font-family:'Share Tech Mono',monospace;
+  font-size:.52rem; letter-spacing:.32em;
+  color:var(--ink-faint); margin-top:2px;
+}
+
+/* ────────────────────────────────────
+   TOP-RIGHT
+──────────────────────────────────── */
+.back{
+  position:fixed; top:28px; right:26px; z-index:30;
+  font-family:'Share Tech Mono',monospace; font-size:.56rem; letter-spacing:.28em;
+  color:var(--ink-faint); text-decoration:none; transition:color .3s;
+}
+.back:hover{ color:var(--ink-soft); }
+.tr{
+  position:fixed; top:56px; right:26px; z-index:20;
+  pointer-events:none;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.52rem; letter-spacing:.3em;
+  color:var(--ink-faint); text-align:right;
+  line-height:1.9;
+}
+.tr .tr-key{color:var(--ink-trace);}
+
+/* ────────────────────────────────────
+   POEM (Chinese, upper-center)
+──────────────────────────────────── */
+.poem{
+  position:fixed; z-index:20;
+  top:clamp(110px, 16%, 160px);
+  left:50%; transform:translateX(-50%);
+  text-align:center; pointer-events:none;
+  width:88%; max-width:520px;
+}
+.pl{
+  display:block;
+  font-family:'Noto Serif SC',serif;
+  font-size:clamp(.92rem,3.3vw,1.05rem);
+  font-weight:300; line-height:2.25;
+  color:transparent; letter-spacing:.08em;
+  transition:color 1.6s ease, transform 1.6s ease;
+  transform:translateY(6px);
+}
+.pl.on{color:var(--ink); transform:translateY(0);}
+
+/* ────────────────────────────────────
+   ELIOT — fades in when cursor in middle band
+──────────────────────────────────── */
+.eliot{
+  position:fixed; z-index:20;
+  left:50%; top:clamp(280px, 42%, 50%);
+  transform:translate(-50%, -50%);
+  text-align:center; pointer-events:none;
+  width:90%; max-width:680px;
+  opacity:var(--eliot-op, .15);
+  transition:opacity 1.2s ease;
+  animation:eliotDrift 22s ease-in-out infinite;
+}
+.eliot-line{
+  display:block;
+  font-family:'Cormorant Garamond',serif;
+  font-style:italic; font-weight:300;
+  font-size:clamp(.86rem,2.4vw,1.05rem);
+  line-height:1.95; letter-spacing:.025em;
+  color:rgba(245,225,180,.92);
+  text-shadow:
+    0 0 22px rgba(248,222,170,.55),
+    0 0 8px rgba(232,200,138,.45),
+    0 1px 2px rgba(40,30,18,.4);
+}
+.eliot-line + .eliot-line{margin-top:2px;}
+.eliot-attr{
+  display:block;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.5rem; letter-spacing:.32em;
+  color:rgba(225,205,160,.55);
+  margin-top:18px;
+  text-shadow:0 0 8px rgba(232,200,138,.3);
+}
+@keyframes eliotDrift{
+  0%,100%{transform:translate(-50%,-50%) translateY(0);}
+  50%{transform:translate(-50%,-50%) translateY(-6px);}
+}
+
+/* In darker time-of-day, give the lines higher base contrast against dark bg */
+body.theme-moonlit .eliot-line{
+  color:rgba(255,242,210,.95);
+  text-shadow:
+    0 0 28px rgba(255,225,175,.65),
+    0 0 10px rgba(255,205,148,.5),
+    0 1px 2px rgba(20,15,10,.5);
+}
+
+/* ────────────────────────────────────
+   HINT (bottom-left)
+──────────────────────────────────── */
+.hint{
+  position:fixed; bottom:26px; left:26px; z-index:20;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.52rem; letter-spacing:.32em;
+  color:var(--ink-faint);
+  pointer-events:none; transition:opacity 1.4s;
+  display:flex; align-items:center; gap:9px;
+}
+.hint .pulse{
+  width:4px; height:4px; border-radius:50%;
+  background:var(--warm);
+  animation:pulse 2.8s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.9;transform:scale(1.5)}}
+
+/* ────────────────────────────────────
+   BOTTOM-RIGHT: status
+──────────────────────────────────── */
+.attr{
+  position:fixed; bottom:26px; right:26px; z-index:20;
+  pointer-events:none; text-align:right;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.5rem; letter-spacing:.26em;
+  color:var(--ink-trace);
+  line-height:1.9;
+}
+
+/* ────────────────────────────────────
+   TRAIN ARRIVAL PANEL — neon-cyber
+──────────────────────────────────── */
+.panel{
+  position:fixed; left:50%; bottom:92px;
+  transform:translate(-50%, 30px);
+  z-index:30; width:min(440px, 86%);
+  padding:24px 26px 22px;
+  background:rgba(14,22,36,.32);
+  backdrop-filter:blur(22px) saturate(120%);
+  -webkit-backdrop-filter:blur(22px) saturate(120%);
+  border:1px solid rgba(var(--neon-cyan),.5);
+  box-shadow:
+    0 0 0 1px rgba(var(--neon-cyan),.08),
+    0 0 22px rgba(var(--neon-cyan),.32),
+    0 0 60px rgba(var(--neon-cyan),.14),
+    0 0 80px rgba(var(--neon-mint),.08),
+    inset 0 0 28px rgba(var(--neon-cyan),.06);
+  opacity:0; pointer-events:none;
+  transition:transform .9s cubic-bezier(.22,1,.36,1), opacity .9s;
+}
+.panel.show{transform:translate(-50%, 0); opacity:1; pointer-events:all;}
+/* Neon corner brackets */
+.panel::before, .panel::after,
+.r-card::before, .r-card::after{
+  content:''; position:absolute; width:14px; height:14px;
+  border:1px solid rgba(var(--neon-cyan),.85);
+}
+.panel::before{top:-2px; left:-2px; border-right:none; border-bottom:none;}
+.panel::after {bottom:-2px; right:-2px; border-left:none; border-top:none;}
+
+.p-row{
+  display:flex; justify-content:space-between; align-items:baseline;
+  margin-bottom:16px;
+  border-bottom:1px solid rgba(var(--neon-cyan),.18);
+  padding-bottom:11px;
+}
+.p-lbl{
+  font-family:'Share Tech Mono',monospace;
+  font-size:.5rem; letter-spacing:.32em;
+  color:rgba(var(--neon-cyan),.9);
+  text-shadow:0 0 8px rgba(var(--neon-cyan),.5);
+}
+.p-no{
+  font-family:'Share Tech Mono',monospace;
+  font-size:.5rem; letter-spacing:.2em;
+  color:rgba(var(--neon-cyan),.45);
+}
+.p-msg{
+  font-family:'Noto Serif SC',serif;
+  font-size:clamp(.95rem,3.5vw,1.08rem);
+  font-weight:300;
+  color:rgba(230,240,250,.94);
+  line-height:1.85; letter-spacing:.06em;
+  margin-bottom:6px;
+  text-shadow:0 0 14px rgba(var(--neon-cyan),.25);
+}
+.p-sub{
+  font-family:'Cormorant Garamond',serif; font-style:italic;
+  font-size:clamp(.8rem,2.6vw,.94rem);
+  color:rgba(200,220,235,.66); line-height:1.5;
+  margin-bottom:20px;
+}
+.choices{display:flex; gap:10px;}
+.cbtn{
+  flex:1; font-family:'Noto Serif SC',serif;
+  font-weight:300;
+  font-size:clamp(.88rem,3.2vw,1rem);
+  letter-spacing:.32em; padding:13px 0 13px 4px;
+  border:1px solid rgba(var(--neon-cyan),.35);
+  background:rgba(10,18,30,.25);
+  color:rgba(220,235,248,.85);
+  cursor:pointer;
+  transition:all .25s ease;
+  position:relative;
+}
+.cbtn:hover{
+  background:rgba(var(--neon-cyan),.08);
+  color:rgba(255,255,255,.95);
+  border-color:rgba(var(--neon-cyan),.85);
+  box-shadow:
+    0 0 18px rgba(var(--neon-cyan),.35),
+    inset 0 0 16px rgba(var(--neon-cyan),.12);
+}
+.cbtn .en{
+  display:block;
+  font-family:'Cormorant Garamond',serif; font-style:italic;
+  font-size:.62em; letter-spacing:.06em;
+  color:rgba(var(--neon-cyan),.55);
+  margin-top:3px; font-weight:300;
+}
+
+/* ────────────────────────────────────
+   RESPONSE CARD — neon-cyber, no seal
+──────────────────────────────────── */
+.resp{
+  position:fixed; inset:0; z-index:40;
+  display:flex; align-items:center; justify-content:center;
+  pointer-events:none; opacity:0;
+  transition:opacity 1s;
+  background:rgba(10,18,28,0);
+}
+.resp.show{opacity:1; pointer-events:all; background:rgba(10,18,28,.35);}
+.r-card{
+  width:min(500px, 88%);
+  padding:34px 32px 26px;
+  background:rgba(14,22,36,.45);
+  backdrop-filter:blur(26px) saturate(125%);
+  -webkit-backdrop-filter:blur(26px) saturate(125%);
+  border:1px solid rgba(var(--neon-cyan),.55);
+  box-shadow:
+    0 0 0 1px rgba(var(--neon-cyan),.1),
+    0 0 30px rgba(var(--neon-cyan),.38),
+    0 0 80px rgba(var(--neon-cyan),.18),
+    0 0 120px rgba(var(--neon-mint),.1),
+    inset 0 0 38px rgba(var(--neon-cyan),.07);
+  text-align:center;
+  position:relative;
+}
+.r-card::before{top:-2px; left:-2px; border-right:none; border-bottom:none;}
+.r-card::after {bottom:-2px; right:-2px; border-left:none; border-top:none;}
+/* Two more corner brackets for the cyber feel */
+.r-card .br-tr, .r-card .br-bl{
+  content:''; position:absolute; width:14px; height:14px;
+  border:1px solid rgba(var(--neon-cyan),.85);
+}
+.r-card .br-tr{top:-2px; right:-2px; border-left:none; border-bottom:none;}
+.r-card .br-bl{bottom:-2px; left:-2px; border-right:none; border-top:none;}
+
+.r-tag{
+  font-family:'Share Tech Mono',monospace;
+  font-size:.5rem; letter-spacing:.36em;
+  color:rgba(var(--neon-cyan),.78);
+  text-shadow:0 0 10px rgba(var(--neon-cyan),.5);
+  margin-bottom:18px;
+  display:inline-block;
+  padding:0 12px;
+  position:relative;
+}
+.r-tag::before, .r-tag::after{
+  content:''; position:absolute; top:50%;
+  width:36px; height:1px;
+  background:linear-gradient(to right, transparent, rgba(var(--neon-cyan),.5), transparent);
+}
+.r-tag::before{right:100%;}
+.r-tag::after{left:100%;}
+.r-zh{
+  font-family:'Noto Serif SC',serif;
+  font-size:clamp(1.02rem,3.6vw,1.18rem);
+  font-weight:300;
+  color:rgba(230,245,255,.95);
+  line-height:2.1; letter-spacing:.08em;
+  white-space:pre-line; margin-bottom:16px;
+  text-shadow:0 0 18px rgba(var(--neon-cyan),.22);
+}
+.r-en{
+  font-family:'Cormorant Garamond',serif; font-style:italic;
+  font-weight:300;
+  font-size:clamp(.8rem,2.7vw,.94rem);
+  color:rgba(200,220,235,.7);
+  line-height:1.7; white-space:pre-line;
+  margin-bottom:28px;
+  padding-top:16px;
+  border-top:1px solid rgba(var(--neon-cyan),.18);
+}
+.r-dis{
+  font-family:'Share Tech Mono',monospace;
+  font-size:.5rem; letter-spacing:.32em;
+  color:rgba(var(--neon-cyan),.65);
+  cursor:pointer;
+  padding:10px 18px;
+  border:1px solid rgba(var(--neon-cyan),.25);
+  transition:all .25s;
+  display:inline-block;
+}
+.r-dis:hover{
+  color:rgba(255,255,255,.95);
+  border-color:rgba(var(--neon-cyan),.7);
+  letter-spacing:.4em;
+  box-shadow:0 0 18px rgba(var(--neon-cyan),.3);
+}
+
+.veil{
+  position:fixed; inset:0; z-index:50;
+  background:#c4cdd8;
+  opacity:1; pointer-events:none;
+  transition:opacity 1.8s ease .3s, background 1.6s;
+}
+.veil.gone{opacity:0;}
+body.theme-dusk .veil{background:#c8b0a8;}
+body.theme-moonlit .veil{background:#0c1424;}
+
+/* ────────────────────────────────────
+   PRODUCT CONTROL — HOUR (时令)
+   visible to ALL viewers (incl. downloaded file)
+──────────────────────────────────── */
+.hour{
+  position:fixed; z-index:25;
+  right:26px; bottom:78px;
+  text-align:right;
+  pointer-events:auto;
+  user-select:none;
+}
+.hour-lbl{
+  font-family:'Share Tech Mono',monospace;
+  font-size:.5rem; letter-spacing:.32em;
+  color:var(--ink-faint);
+  margin-bottom:9px;
+  transition:color 1.2s;
+}
+body.theme-moonlit .hour-lbl{ color:rgba(170,190,215,.55); }
+body.theme-dusk    .hour-lbl{ color:rgba(82,52,58,.5); }
+.hour-opts{
+  display:inline-flex;
+  gap:0;
+}
+.hour-opts button{
+  appearance:none; border:none; background:transparent;
+  cursor:pointer;
+  padding:5px 11px 5px 13px;
+  font-family:'Noto Serif SC',serif;
+  font-weight:300;
+  font-size:.82rem; letter-spacing:.18em;
+  color:var(--ink-faint);
+  border-left:1px solid var(--ink-trace);
+  display:flex; flex-direction:column;
+  align-items:center; gap:2px;
+  line-height:1;
+  transition:color .5s, background .5s;
+  position:relative;
+}
+.hour-opts button:first-child{ border-left:none; }
+.hour-opts button .en{
+  font-family:'Share Tech Mono',monospace;
+  font-size:.46rem; letter-spacing:.22em;
+  color:var(--ink-trace);
+  font-style:normal;
+  transition:color .5s;
+}
+.hour-opts button:hover{ color:var(--ink); }
+.hour-opts button:hover .en{ color:var(--ink-soft); }
+.hour-opts button.on{
+  color:var(--ink);
+}
+.hour-opts button.on .en{ color:var(--warm); }
+.hour-opts button.on::after{
+  content:'';
+  position:absolute; bottom:-7px; left:50%;
+  transform:translateX(-50%);
+  width:3px; height:3px; border-radius:50%;
+  background:var(--warm); opacity:.85;
+}
+
+/* dark theme inversions */
+body.theme-moonlit .hour-opts button{
+  color:rgba(160,180,205,.45);
+  border-left-color:rgba(120,140,168,.18);
+}
+body.theme-moonlit .hour-opts button .en{ color:rgba(120,140,168,.32); }
+body.theme-moonlit .hour-opts button:hover{ color:rgba(220,232,248,.92); }
+body.theme-moonlit .hour-opts button:hover .en{ color:rgba(180,200,225,.7); }
+body.theme-moonlit .hour-opts button.on{ color:rgba(240,246,255,.95); }
+body.theme-moonlit .hour-opts button.on .en{ color:rgba(245,222,178,.85); }
+body.theme-moonlit .hour-opts button.on::after{ background:rgba(245,222,178,.9); box-shadow:0 0 6px rgba(245,222,178,.6); }
+
+body.theme-dusk .hour-opts button{
+  color:rgba(82,52,58,.55);
+  border-left-color:rgba(82,52,58,.18);
+}
+body.theme-dusk .hour-opts button .en{ color:rgba(82,52,58,.35); }
+body.theme-dusk .hour-opts button.on{ color:rgba(48,28,32,.95); }
+body.theme-dusk .hour-opts button.on .en{ color:rgba(178,98,52,.78); }
+body.theme-dusk .hour-opts button.on::after{ background:rgba(198,108,60,.88); }
+
+/* ────────────────────────────────────
+   AUDIO TOGGLE
+──────────────────────────────────── */
+.audio-tg{
+  position:fixed; z-index:25;
+  right:26px; top:104px;
+  display:flex; align-items:center; gap:9px;
+  cursor:pointer;
+  padding:6px 11px 6px 9px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.5rem; letter-spacing:.3em;
+  color:var(--ink-faint);
+  border:1px solid var(--ink-trace);
+  background:rgba(255,255,255,.02);
+  backdrop-filter:blur(4px);
+  user-select:none;
+  transition:color .35s, border-color .35s, background .35s;
+}
+.audio-tg:hover{ color:var(--ink-soft); border-color:var(--ink-faint); }
+.audio-tg .a-ring{
+  width:6px; height:6px; border-radius:50%;
+  background:transparent;
+  border:1px solid currentColor;
+  opacity:.65;
+  transition:background .3s, box-shadow .3s, opacity .3s;
+}
+.audio-tg.on .a-ring{
+  background:var(--warm);
+  border-color:var(--warm);
+  box-shadow:0 0 8px rgba(180,140,82,.6);
+  opacity:.95;
+}
+.audio-tg .a-bars{
+  display:inline-flex; align-items:flex-end; gap:1.5px;
+  height:9px;
+}
+.audio-tg .a-bars span{
+  display:block; width:1.6px;
+  background:currentColor;
+  opacity:.55;
+  height:30%;
+  transform-origin:bottom;
+}
+.audio-tg.on .a-bars span{
+  animation:abar 1.4s ease-in-out infinite;
+}
+.audio-tg.on .a-bars span:nth-child(1){ animation-delay:0s; }
+.audio-tg.on .a-bars span:nth-child(2){ animation-delay:.18s; }
+.audio-tg.on .a-bars span:nth-child(3){ animation-delay:.36s; }
+.audio-tg.on .a-bars span:nth-child(4){ animation-delay:.54s; }
+@keyframes abar{
+  0%,100%{ transform:scaleY(.3); }
+  50%    { transform:scaleY(1);  }
+}
+
+/* dark theme audio toggle */
+body.theme-moonlit .audio-tg{
+  color:rgba(160,180,205,.45);
+  border-color:rgba(120,140,168,.22);
+}
+body.theme-moonlit .audio-tg:hover{ color:rgba(220,235,250,.85); border-color:rgba(180,200,225,.4); }
+body.theme-moonlit .audio-tg.on .a-ring{
+  background:rgba(245,222,178,.95);
+  border-color:rgba(245,222,178,.95);
+  box-shadow:0 0 10px rgba(245,222,178,.7);
+}
+body.theme-dusk .audio-tg{
+  color:rgba(82,52,58,.55);
+  border-color:rgba(82,52,58,.18);
+}
+
+/* ────────────────────────────────────
+   TWEAKS PANEL
+──────────────────────────────────── */
+#tweaks{
+  position:fixed; z-index:60;
+  bottom:24px; right:24px;
+  width:260px;
+  padding:18px 18px 16px;
+  background:rgba(14,22,36,.6);
+  backdrop-filter:blur(20px) saturate(130%);
+  -webkit-backdrop-filter:blur(20px) saturate(130%);
+  border:1px solid rgba(var(--neon-cyan),.5);
+  box-shadow:
+    0 0 0 1px rgba(var(--neon-cyan),.08),
+    0 0 22px rgba(var(--neon-cyan),.3),
+    inset 0 0 24px rgba(var(--neon-cyan),.06);
+  display:none;
+  color:rgba(220,235,248,.9);
+}
+#tweaks.show{display:block;}
+#tweaks .tk-h{
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:14px;
+  padding-bottom:10px;
+  border-bottom:1px solid rgba(var(--neon-cyan),.2);
+}
+#tweaks .tk-title{
+  font-family:'Share Tech Mono',monospace;
+  font-size:.55rem; letter-spacing:.32em;
+  color:rgba(var(--neon-cyan),.9);
+  text-shadow:0 0 8px rgba(var(--neon-cyan),.5);
+}
+#tweaks .tk-close{
+  cursor:pointer;
+  font-family:'Share Tech Mono',monospace;
+  font-size:.7rem; line-height:1;
+  color:rgba(var(--neon-cyan),.6);
+  padding:2px 6px;
+  transition:color .2s;
+}
+#tweaks .tk-close:hover{color:rgba(255,255,255,.95);}
+.tk-sec{margin-bottom:14px;}
+.tk-sec:last-child{margin-bottom:0;}
+.tk-lbl{
+  font-family:'Share Tech Mono',monospace;
+  font-size:.48rem; letter-spacing:.28em;
+  color:rgba(var(--neon-cyan),.62);
+  margin-bottom:7px;
+  display:flex; justify-content:space-between;
+}
+.tk-lbl .tk-val{
+  color:rgba(220,235,248,.7);
+  letter-spacing:.18em;
+}
+.tk-radio{display:flex; gap:5px;}
+.tk-radio button{
+  flex:1;
+  font-family:'Noto Serif SC',serif;
+  font-size:.78rem; font-weight:300;
+  letter-spacing:.14em;
+  padding:7px 0 7px 2px;
+  border:1px solid rgba(var(--neon-cyan),.25);
+  background:rgba(10,18,30,.3);
+  color:rgba(200,220,235,.7);
+  cursor:pointer;
+  transition:all .2s;
+}
+.tk-radio button.on{
+  background:rgba(var(--neon-cyan),.12);
+  border-color:rgba(var(--neon-cyan),.8);
+  color:rgba(255,255,255,.95);
+  box-shadow:
+    0 0 14px rgba(var(--neon-cyan),.3),
+    inset 0 0 10px rgba(var(--neon-cyan),.1);
+}
+.tk-radio button:hover{
+  border-color:rgba(var(--neon-cyan),.55);
+}
+.tk-slider{
+  -webkit-appearance:none; appearance:none;
+  width:100%; height:18px;
+  background:transparent;
+  cursor:pointer;
+}
+.tk-slider::-webkit-slider-runnable-track{
+  height:2px;
+  background:rgba(var(--neon-cyan),.25);
+}
+.tk-slider::-moz-range-track{
+  height:2px;
+  background:rgba(var(--neon-cyan),.25);
+}
+.tk-slider::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none;
+  width:14px; height:14px;
+  border-radius:50%;
+  background:rgba(var(--neon-cyan),1);
+  border:1px solid rgba(var(--neon-cyan),1);
+  box-shadow:0 0 10px rgba(var(--neon-cyan),.7);
+  margin-top:-6px;
+  cursor:pointer;
+}
+.tk-slider::-moz-range-thumb{
+  width:14px; height:14px;
+  border-radius:50%;
+  background:rgba(var(--neon-cyan),1);
+  border:1px solid rgba(var(--neon-cyan),1);
+  box-shadow:0 0 10px rgba(var(--neon-cyan),.7);
+  cursor:pointer;
+}
+
+@media (max-width:520px){
+  .title{top:18px; left:18px;}
+  .back{top:20px; right:18px;}
+  .tr{top:50px; right:18px;}
+  .hint{bottom:18px; left:18px;}
+  .attr{bottom:18px; right:18px;}
+  .panel{bottom:78px;}
+  .t-zh{font-size:1.02rem; letter-spacing:.32em;}
+  .t-en{font-size:.84rem;}
+  .eliot{top:46%;}
+  #tweaks{bottom:auto; top:60px; right:14px; width:230px;}
+  .hour{ right:18px; bottom:62px; }
+  .hour-opts button{ padding:4px 8px 4px 10px; font-size:.74rem; letter-spacing:.14em; }
+  .audio-tg{ right:18px; top:92px; }
+}
+
+/* Hide product controls when train panel / response is active */
+body.panel-open .hour,
+body.panel-open .audio-tg,
+body.resp-open .hour,
+body.resp-open .audio-tg{
+  opacity:0; pointer-events:none;
+  transition:opacity .5s;
+}
+.hour, .audio-tg{ transition:opacity .8s, color .5s, background .5s, border-color .5s; }
+</style>
+<script src="page-transition.js"></script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<canvas id="fog"></canvas>
+
+<div class="title">
+  <div class="t-zh">云<span class="dot"></span>雾<span class="dot"></span>站<span class="dot"></span>台</div>
+  <div class="t-en">Mist Platform</div>
+  <div class="t-meta">N° 003 · LIMINAL · 长明山谷</div>
+</div>
+
+<a class="back" href="Spirit Map.html">← SPIRIT MAP</a>
+
+<div class="tr">
+  <span class="tr-key">PLATFORM</span> 003<br>
+  <span class="tr-key">DEST.</span> 无 / NONE
+</div>
+
+<div class="poem" id="poem">
+  <span class="pl" id="pl0">这里是不设目的地的站台，浮在云雾中。</span>
+  <span class="pl" id="pl1">我们在这里，不为解决什么，也不为去做什么。</span>
+  <span class="pl" id="pl2">等待灵魂自然显影，等待不急迫的转化，</span>
+  <span class="pl" id="pl3">等待无需思考的存在本身。</span>
+</div>
+
+<div class="eliot" id="eliot">
+  <span class="eliot-line">Wait without hope, for hope would be hope for the wrong thing;</span>
+  <span class="eliot-line">Wait without love, for love would be love of the wrong thing;</span>
+  <span class="eliot-line">Yet there is faith — but the faith and the love and the hope are all in the waiting.</span>
+  <span class="eliot-attr">— T.S. ELIOT · EAST COKER</span>
+</div>
+
+<div class="hint" id="hint">
+  <span class="pulse"></span>
+  <span>MOVE · 拨开雾气</span>
+</div>
+
+<div class="attr">
+  长 明 山 谷<br>
+  THE LONG-BRIGHT VALLEY
+</div>
+
+<!-- ── PRODUCT CONTROLS — visible to all users, on download too ── -->
+<div class="hour" id="hour">
+  <div class="hour-lbl">时 令 · HOUR</div>
+  <div class="hour-opts">
+    <button data-v="mist"><span class="zh">雾晨</span><span class="en">mist</span></button>
+    <button data-v="dusk"><span class="zh">黄昏</span><span class="en">dusk</span></button>
+    <button data-v="moonlit"><span class="zh">月夜</span><span class="en">moon</span></button>
+  </div>
+</div>
+
+<div class="audio-tg" id="audioTg" title="环境音 / Ambient">
+  <span class="a-ring"></span>
+  <span class="a-bars" aria-hidden="true">
+    <span></span><span></span><span></span><span></span>
+  </span>
+  <span class="a-lbl">SOUND · 关</span>
+</div>
+
+<div class="panel" id="panel">
+  <div class="p-row">
+    <span class="p-lbl">TRAIN APPROACHING · 列车至</span>
+    <span class="p-no">N° —</span>
+  </div>
+  <div class="p-msg">列车来了。</div>
+  <div class="p-sub">你是乘客，还是守车人？<br>Are you a passenger, or one who keeps watch?</div>
+  <div class="choices">
+    <button class="cbtn" id="boardBtn">上 车<span class="en">board</span></button>
+    <button class="cbtn" id="stayBtn">留 下<span class="en">stay</span></button>
+  </div>
+</div>
+
+<div class="resp" id="resp">
+  <div class="r-card">
+    <div class="br-tr"></div><div class="br-bl"></div>
+    <div class="r-tag" id="rTag">TRANSMISSION</div>
+    <div class="r-zh" id="rZh"></div>
+    <div class="r-en" id="rEn"></div>
+    <div class="r-dis" id="rDis">继续等待 · CONTINUE WAITING</div>
+  </div>
+</div>
+
+<!-- TWEAKS PANEL -->
+<div id="tweaks">
+  <div class="tk-h">
+    <span class="tk-title">TWEAKS · 微调</span>
+    <span class="tk-close" id="tkClose">×</span>
+  </div>
+  <div class="tk-sec">
+    <div class="tk-lbl">FOG DENSITY · 雾浓度 <span class="tk-val" id="tkFogVal">1.0</span></div>
+    <input type="range" min="0.3" max="2" step="0.1" class="tk-slider" id="tkFog">
+  </div>
+  <div class="tk-sec">
+    <div class="tk-lbl">REACH · 擦除半径 <span class="tk-val" id="tkReachVal">1.0</span></div>
+    <input type="range" min="0.5" max="2.2" step="0.1" class="tk-slider" id="tkReach">
+  </div>
+</div>
+
+<div class="veil" id="veil"></div>
+
+<script>
+/* ─────────────────────────────────────
+   TWEAKS DEFAULTS (persisted by host)
+───────────────────────────────────── */
+const T = /*EDITMODE-BEGIN*/{
+  "timeOfDay": "dusk",
+  "fogDensity": 0.3,
+  "reach": 1.7
+}/*EDITMODE-END*/;
+
+/* ─────────────────────────────────────
+   PALETTES per time-of-day
+───────────────────────────────────── */
+const PALETTES = {
+  mist: {
+    bgTop:'#d4dce8', bgMid1:'#c9d1dc', bgMid2:'#bcc5d2', bgBot:'#aeb8c5',
+    horizonGlow:'rgba(228,218,200,.15)',
+    mtnFar:'rgba(150,160,178,.32)', mtnMid:'rgba(118,128,148,.46)', mtnNear:'rgba(86,98,120,.58)',
+    edgeFog:'rgba(208,218,232,.5)',
+    fogColor:[232,238,246],
+    canopy1:'rgba(58,68,82,.92)', canopy2:'rgba(72,82,98,.78)',
+    columnsBase:'rgba(68,78,94,.6)', columnsCap:'rgba(58,68,82,.85)',
+    plat1:'rgba(168,172,182,.94)', plat2:'rgba(142,148,158,.94)',
+    platFront:'rgba(108,116,126,.88)',
+    track1:'rgba(82,88,98,.9)', track2:'rgba(62,68,78,.92)',
+    railColor:'rgba(140,148,158,.9)',
+    safetyLine:'rgba(195,160,68,.62)',
+    lampWarm: 1,
+    starN: 0,
+    inkSoft:'rgba(35,45,62,.6)',
+  },
+  dusk: {
+    bgTop:'#dac8c2', bgMid1:'#d2b8b0', bgMid2:'#b896a0', bgBot:'#8a6a78',
+    horizonGlow:'rgba(255,200,148,.35)',
+    mtnFar:'rgba(160,135,148,.4)', mtnMid:'rgba(130,98,116,.5)', mtnNear:'rgba(80,55,75,.62)',
+    edgeFog:'rgba(230,200,196,.5)',
+    fogColor:[238,220,218],
+    canopy1:'rgba(56,42,52,.92)', canopy2:'rgba(72,55,68,.8)',
+    columnsBase:'rgba(72,52,62,.62)', columnsCap:'rgba(58,42,52,.85)',
+    plat1:'rgba(170,150,148,.92)', plat2:'rgba(146,124,128,.92)',
+    platFront:'rgba(96,76,82,.88)',
+    track1:'rgba(70,52,58,.9)', track2:'rgba(48,32,38,.92)',
+    railColor:'rgba(150,120,124,.88)',
+    safetyLine:'rgba(220,162,80,.65)',
+    lampWarm: 1.3,
+    starN: 0,
+    inkSoft:'rgba(48,30,38,.6)',
+  },
+  moonlit: {
+    bgTop:'#1e2638', bgMid1:'#181e2e', bgMid2:'#10162a', bgBot:'#070b18',
+    horizonGlow:'rgba(120,150,200,.22)',
+    mtnFar:'rgba(48,62,86,.5)', mtnMid:'rgba(32,46,72,.6)', mtnNear:'rgba(18,28,48,.7)',
+    edgeFog:'rgba(40,55,80,.55)',
+    fogColor:[170,200,235],
+    canopy1:'rgba(14,20,32,.95)', canopy2:'rgba(20,28,42,.85)',
+    columnsBase:'rgba(20,28,42,.78)', columnsCap:'rgba(14,20,32,.92)',
+    plat1:'rgba(58,72,96,.94)', plat2:'rgba(40,52,72,.94)',
+    platFront:'rgba(24,32,46,.92)',
+    track1:'rgba(18,24,38,.94)', track2:'rgba(10,14,24,.94)',
+    railColor:'rgba(100,128,158,.85)',
+    safetyLine:'rgba(220,178,92,.55)',
+    lampWarm: 1.55,
+    starN: 80,
+    inkSoft:'rgba(190,205,225,.7)',
+  },
+};
+function P(){ return PALETTES[T.timeOfDay] || PALETTES.mist; }
+
+/* ─────────────────────────────────────
+   CANVAS SETUP
+───────────────────────────────────── */
+const cv = document.getElementById('c');
+const cx = cv.getContext('2d');
+const fg = document.getElementById('fog');
+const fx = fg.getContext('2d');
+let W, H, DPR;
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  W = innerWidth; H = innerHeight;
+  [cv, fg].forEach(c => {
+    c.width = W*DPR; c.height = H*DPR;
+    c.style.width = W+'px'; c.style.height = H+'px';
+  });
+  cx.setTransform(DPR,0,0,DPR,0,0);
+  fx.setTransform(DPR,0,0,DPR,0,0);
+}
+resize();
+
+let t = 0;
+
+/* ── LAYOUT ─────────────────────────── */
+const L = {
+  canopyTop:   .17,
+  canopyBot:   .215,
+  horizon:     .55,
+  platformTop: .68,
+  platformBot: .735,
+  trackBot:    .87,
+};
+
+/* ── CURSOR ─────────────────────────── */
+const cur = { x:-500, y:-500, tx:-500, ty:-500, active:0, target:0, lastMove:0 };
+function setCursor(x,y){ cur.tx=x; cur.ty=y; cur.target=1; cur.lastMove = performance.now(); }
+function clearCursor(){ cur.target=0; }
+addEventListener('mousemove', e => setCursor(e.clientX, e.clientY));
+addEventListener('mouseleave', clearCursor);
+addEventListener('touchstart', e => { const tch=e.touches[0]; setCursor(tch.clientX, tch.clientY); }, {passive:true});
+addEventListener('touchmove',  e => { const tch=e.touches[0]; setCursor(tch.clientX, tch.clientY); }, {passive:true});
+addEventListener('touchend',   () => setTimeout(clearCursor, 800), {passive:true});
+
+/* ── MOUNTAINS ──────────────────────── */
+function mountainPath(seed, baseY, amp, period, offset){
+  const pts = [];
+  const steps = 26;
+  for(let i=0; i<=steps; i++){
+    const x = (i/steps)*W;
+    const n = Math.sin(x*period + seed)*amp
+            + Math.sin(x*period*2.3 + seed*1.7)*amp*.35
+            + Math.cos(x*period*.6 + seed*.5)*amp*.5;
+    pts.push([x, baseY + n + offset]);
+  }
+  return pts;
+}
+const MTN = {
+  far:  { pts:null, lampN: 8 },
+  mid:  { pts:null, lampN: 6 },
+  near: { pts:null, lampN: 4 },
+};
+const LAMPS = [];
+function rebuildMountains(){
+  MTN.far.pts  = mountainPath(1.2, H*L.horizon, 16, .0028, -28);
+  MTN.mid.pts  = mountainPath(2.7, H*L.horizon, 20, .0048, -8);
+  MTN.near.pts = mountainPath(3.9, H*L.horizon, 13, .0072, 10);
+  LAMPS.length = 0;
+  [MTN.far, MTN.mid, MTN.near].forEach((m, layerIdx) => {
+    for(let k=0; k<m.lampN; k++){
+      const idx = 2 + Math.floor(Math.random()*(m.pts.length-4));
+      LAMPS.push({
+        x: m.pts[idx][0] + (Math.random()-.5)*16,
+        y: m.pts[idx][1] + 4 + Math.random()*4,
+        size: layerIdx===2 ? 1.3 : layerIdx===1 ? 1.0 : .8,
+        warmth: .65 + Math.random()*.2,
+        ph: Math.random()*Math.PI*2,
+        layer: layerIdx,
+      });
+    }
+  });
+}
+rebuildMountains();
+
+/* ── STARS (for moonlit) ─────────────── */
+const STARS = [];
+function rebuildStars(){
+  STARS.length = 0;
+  for(let i=0; i<100; i++){
+    STARS.push({
+      x: Math.random(),
+      y: Math.random() * L.horizon,
+      a: .3 + Math.random()*.7,
+      r: .3 + Math.random()*.7,
+      tw: Math.random()*Math.PI*2,
+    });
+  }
+}
+rebuildStars();
+
+addEventListener('resize', () => { resize(); rebuildMountains(); rebuildFog(); });
+
+/* ── FOG PUFFS (flowing, wind-driven, stretched) ── */
+let FOG = [];
+function rebuildFog(){
+  FOG = [];
+  // Three layers of fog: back/mid/front, each elongates with motion
+  const layers = [
+    { yMin:.10, yMax:.45, count:24, rMin:.20, rMax:.40, aMin:.32, aMax:.52, spdMul:.6,  stretch:1.4 },
+    { yMin:.30, yMax:.72, count:30, rMin:.22, rMax:.42, aMin:.42, aMax:.62, spdMul:1.0, stretch:1.8 },
+    { yMin:.55, yMax:.95, count:28, rMin:.24, rMax:.46, aMin:.5,  aMax:.72, spdMul:1.5, stretch:2.2 },
+  ];
+  layers.forEach((lay, li) => {
+    for(let i=0; i<lay.count; i++){
+      FOG.push({
+        x: Math.random()*1.4 - .2,
+        y: lay.yMin + Math.random()*(lay.yMax-lay.yMin),
+        baseY: 0,                 // will set on first frame
+        vx: 0, vy: 0,             // resolved per frame from wind
+        intrinsicVx:(Math.random()*.4 + .2)*.0001*(Math.random()<.5?1:-1),
+        intrinsicVy:(Math.random()-.5)*.00002,
+        r: lay.rMin + Math.random()*(lay.rMax-lay.rMin),
+        a: lay.aMin + Math.random()*(lay.aMax-lay.aMin),
+        ph: Math.random()*Math.PI*2,
+        wobble: Math.random()*.000035,
+        spdMul: lay.spdMul,
+        stretch: lay.stretch,
+        layer: li,
+      });
+    }
+  });
+  // Save baseY
+  FOG.forEach(p => p.baseY = p.y);
+}
+rebuildFog();
+
+/* ── BIRDS ──────────────────────────── */
+let birds = null;
+let birdNext = 600 + Math.random()*1200;
+function spawnBirds(){
+  const n = 3 + (Math.random()*3|0);
+  const dir = Math.random()<.5 ? 1 : -1;
+  const startX = dir>0 ? -.15 : 1.15;
+  const baseY = .26 + Math.random()*.18;
+  birds = Array.from({length:n}, (_,i) => ({
+    x: startX + dir*(-i*.02 + (Math.random()-.5)*.015),
+    y: baseY + (Math.random()-.5)*.04,
+    dir, ph:Math.random()*Math.PI*2,
+    flap: Math.random()*Math.PI*2,
+    spd: .00065 + Math.random()*.0003
+  }));
+}
+
+/* ── PLATFORM LAMP & CLOCK ──────────── */
+let lampOn = 1, lampTick = 0, lampNext = 250+Math.random()*350;
+let clockAngle = Math.random()*Math.PI*2;
+let clockSpeed = 1, clockTick = 0;
+
+/* ── TRAIN STATE ────────────────────── */
+const TRAIN = {
+  state: 'waiting',  // waiting | approaching | rushing | arriving | present | departing
+  tick: 0,
+  nextIn: (22 + Math.random()*32) * 60,
+  x: 0, speed: 0, dir: 1,
+  width: 0, height: 0,
+  trail: [],
+  headlight: 0,
+};
+function setTrainSize(){
+  TRAIN.width  = Math.min(W*.7, 760);
+  TRAIN.height = Math.max(58, Math.min(H*.13, 96));
+}
+
+/* ─────────────────────────────────────
+   BG
+───────────────────────────────────── */
+function drawBg(){
+  const p = P();
+  const g = cx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,   p.bgTop);
+  g.addColorStop(.42, p.bgMid1);
+  g.addColorStop(.7,  p.bgMid2);
+  g.addColorStop(1,   p.bgBot);
+  cx.fillStyle = g; cx.fillRect(0,0,W,H);
+
+  const hg = cx.createLinearGradient(0, H*.36, 0, H*.6);
+  hg.addColorStop(0,'transparent');
+  hg.addColorStop(.5, p.horizonGlow);
+  hg.addColorStop(1,'transparent');
+  cx.fillStyle = hg; cx.fillRect(0, H*.36, W, H*.24);
+}
+
+/* ─────────────────────────────────────
+   STARS (moonlit only)
+───────────────────────────────────── */
+function drawStars(){
+  if(P().starN <= 0) return;
+  STARS.forEach(s => {
+    const a = s.a * (.6 + Math.sin(t*.7 + s.tw)*.4);
+    cx.fillStyle = `rgba(225,235,255,${a*.85})`;
+    cx.beginPath();
+    cx.arc(s.x*W, s.y*H, s.r, 0, Math.PI*2);
+    cx.fill();
+    if(s.r > .6){
+      cx.fillStyle = `rgba(225,235,255,${a*.2})`;
+      cx.beginPath();
+      cx.arc(s.x*W, s.y*H, s.r*2.5, 0, Math.PI*2);
+      cx.fill();
+    }
+  });
+  // Moon
+  const mx = W*.84, my = H*.16, mr = 22;
+  const mg = cx.createRadialGradient(mx,my,0,mx,my,mr*2.5);
+  mg.addColorStop(0,'rgba(240,240,228,.95)');
+  mg.addColorStop(.25,'rgba(240,238,222,.45)');
+  mg.addColorStop(1,'transparent');
+  cx.fillStyle = mg;
+  cx.beginPath(); cx.arc(mx,my,mr*2.5,0,Math.PI*2); cx.fill();
+  cx.fillStyle = 'rgba(245,240,222,.92)';
+  cx.beginPath(); cx.arc(mx,my,mr,0,Math.PI*2); cx.fill();
+}
+
+/* ─────────────────────────────────────
+   MOUNTAINS + VALLEY LAMPS
+───────────────────────────────────── */
+function drawMountainLayer(layer, color){
+  cx.beginPath();
+  cx.moveTo(0, H*L.platformTop);
+  layer.pts.forEach(p => cx.lineTo(p[0], p[1]));
+  cx.lineTo(W, H*L.platformTop);
+  cx.closePath();
+  cx.fillStyle = color;
+  cx.fill();
+}
+function drawLamps(layerIdx){
+  const warm = P().lampWarm;
+  LAMPS.filter(l => l.layer === layerIdx).forEach(l => {
+    const pulse = .7 + Math.sin(t*.5 + l.ph)*.3;
+    const a = l.warmth * pulse * warm;
+    const hg = cx.createRadialGradient(l.x, l.y, 0, l.x, l.y, l.size*8);
+    hg.addColorStop(0, `rgba(235,200,128,${a*.45})`);
+    hg.addColorStop(.5,`rgba(220,180,108,${a*.15})`);
+    hg.addColorStop(1, 'transparent');
+    cx.fillStyle = hg;
+    cx.beginPath(); cx.arc(l.x, l.y, l.size*8, 0, Math.PI*2); cx.fill();
+    cx.fillStyle = `rgba(248,225,158,${Math.min(1,a*.95)})`;
+    cx.beginPath(); cx.arc(l.x, l.y, l.size, 0, Math.PI*2); cx.fill();
+  });
+}
+function drawMountains(){
+  const p = P();
+  drawMountainLayer(MTN.far,  p.mtnFar);
+  drawLamps(0);
+  drawMountainLayer(MTN.mid,  p.mtnMid);
+  drawLamps(1);
+  drawMountainLayer(MTN.near, p.mtnNear);
+  drawLamps(2);
+}
+
+/* ─────────────────────────────────────
+   BIRDS
+───────────────────────────────────── */
+function drawBirds(){
+  if(!birds){
+    birdNext--;
+    if(birdNext<=0){ spawnBirds(); birdNext = 1400 + Math.random()*2200; }
+    return;
+  }
+  let alive = false;
+  const isMoon = T.timeOfDay === 'moonlit';
+  birds.forEach(b => {
+    b.x += b.dir * b.spd;
+    b.flap += .18;
+    if(b.x > -.2 && b.x < 1.2) alive = true;
+    const bx = b.x * W, by = b.y * H;
+    const flap = Math.sin(b.flap)*4 + 2;
+    cx.strokeStyle = isMoon ? 'rgba(150,170,200,.45)' : 'rgba(58,68,86,.42)';
+    cx.lineWidth = 1.1; cx.lineCap='round';
+    cx.beginPath();
+    cx.moveTo(bx-6, by);
+    cx.quadraticCurveTo(bx-3, by-flap, bx, by);
+    cx.quadraticCurveTo(bx+3, by-flap, bx+6, by);
+    cx.stroke();
+  });
+  if(!alive) birds = null;
+}
+
+/* ─────────────────────────────────────
+   STATION — split into back / front
+───────────────────────────────────── */
+function drawStationBack(){
+  const p = P();
+  const cT = H*L.canopyTop, cB = H*L.canopyBot;
+  const pT = H*L.platformTop;
+
+  // Canopy
+  const cg = cx.createLinearGradient(0,cT,0,cB);
+  cg.addColorStop(0, p.canopy1);
+  cg.addColorStop(1, p.canopy2);
+  cx.fillStyle = cg;
+  cx.fillRect(0,cT,W,cB-cT);
+
+  cx.fillStyle = 'rgba(180,140,82,.42)';
+  cx.fillRect(0, cB, W, 1.5);
+
+  const ce = cx.createLinearGradient(0, cB, 0, cB+H*.05);
+  ce.addColorStop(0,'rgba(45,55,72,.22)');
+  ce.addColorStop(1,'rgba(45,55,72,0)');
+  cx.fillStyle = ce;
+  cx.fillRect(0, cB, W, H*.05);
+
+  // Columns
+  const cols = [.12,.31,.5,.69,.88].map(f=>W*f);
+  cols.forEach(cxv => {
+    const colW = 9;
+    cx.fillStyle = p.columnsBase;
+    cx.fillRect(cxv-colW/2, cB, colW, pT-cB);
+    cx.fillStyle = 'rgba(255,255,255,.06)';
+    cx.fillRect(cxv-colW/2, cB, 1.5, pT-cB);
+    cx.fillStyle = p.columnsCap;
+    cx.fillRect(cxv-colW/2-3, cB-2, colW+6, 5);
+    cx.fillStyle = 'rgba(180,140,82,.3)';
+    cx.fillRect(cxv-colW/2-3, cB+3, colW+6, 1);
+    cx.fillStyle = p.columnsCap;
+    cx.fillRect(cxv-colW/2-2, pT-4, colW+4, 4);
+  });
+}
+
+function drawStationFront(){
+  const p = P();
+  const pT = H*L.platformTop, pB = H*L.platformBot;
+  const tB = H*L.trackBot;
+
+  // Platform surface
+  const pg = cx.createLinearGradient(0,pT,0,pB);
+  pg.addColorStop(0, p.plat1);
+  pg.addColorStop(1, p.plat2);
+  cx.fillStyle = pg;
+  cx.fillRect(0,pT,W,pB-pT);
+
+  for(let i=0;i<8;i++){
+    const lx = (i/7)*W;
+    cx.fillStyle = 'rgba(120,128,138,.15)';
+    cx.fillRect(lx, pT+2, .6, pB-pT-4);
+  }
+
+  cx.fillStyle = 'rgba(255,255,255,.18)';
+  cx.fillRect(0,pT,W,1.2);
+
+  // Safety line
+  cx.fillStyle = p.safetyLine;
+  cx.fillRect(0, pB-5, W, 2.5);
+  for(let i=0; i<W/14; i++){
+    cx.fillStyle = 'rgba(160,128,52,.4)';
+    cx.fillRect(i*14, pB-6, 6, .6);
+  }
+
+  // Front face
+  cx.fillStyle = p.platFront;
+  cx.fillRect(0, pB, W, 5);
+
+  // Track bed
+  const tg = cx.createLinearGradient(0,pB+5,0,tB);
+  tg.addColorStop(0, p.track1);
+  tg.addColorStop(1, p.track2);
+  cx.fillStyle = tg;
+  cx.fillRect(0, pB+5, W, tB-pB-5);
+
+  // Sleeper ties
+  const slCount = Math.ceil(W/38)+1;
+  for(let i=0;i<=slCount;i++){
+    const sx = i*38;
+    cx.fillStyle = 'rgba(35,40,48,.7)';
+    cx.fillRect(sx-4, pB+8, 8, H*(L.trackBot-L.platformBot)*.7);
+  }
+
+  // Rails
+  const r1y = pB+8;
+  cx.fillStyle = p.railColor;
+  cx.fillRect(0, r1y, W, 3.5);
+  cx.fillStyle = 'rgba(255,255,255,.18)';
+  cx.fillRect(0, r1y, W, 1);
+
+  const r2y = pB + H*(L.trackBot-L.platformBot)*.55;
+  cx.fillStyle = p.railColor;
+  cx.fillRect(0, r2y, W, 3);
+  cx.fillStyle = 'rgba(255,255,255,.12)';
+  cx.fillRect(0, r2y, W, .8);
+}
+
+/* ─────────────────────────────────────
+   BENCH
+───────────────────────────────────── */
+function drawBench(){
+  const pT = H*L.platformTop;
+  const bx = W*.82;
+  const by = pT - 18;
+  const bw = 64, bh = 18;
+
+  cx.fillStyle = 'rgba(48,42,36,.78)';
+  cx.fillRect(bx, by+bh, 4, 8);
+  cx.fillRect(bx+bw-4, by+bh, 4, 8);
+
+  const wg = cx.createLinearGradient(0, by, 0, by+bh*.5);
+  wg.addColorStop(0,'rgba(115,82,55,.85)');
+  wg.addColorStop(1,'rgba(85,58,38,.85)');
+  cx.fillStyle = wg;
+  cx.fillRect(bx, by+bh*.4, bw, bh*.2);
+
+  cx.fillStyle = 'rgba(95,68,45,.85)';
+  cx.fillRect(bx+2, by, bw-4, bh*.32);
+  cx.fillStyle = 'rgba(105,75,50,.85)';
+  cx.fillRect(bx+2, by-bh*.42, bw-4, bh*.32);
+
+  cx.fillStyle = 'rgba(60,48,38,.85)';
+  cx.fillRect(bx, by-bh*.5, 3, bh);
+  cx.fillRect(bx+bw-3, by-bh*.5, 3, bh);
+
+  const sx = bx + bw + 8;
+  const sy = by + bh*.2;
+  cx.fillStyle = 'rgba(75,55,38,.86)';
+  cx.fillRect(sx, sy, 22, 16);
+  cx.fillStyle = 'rgba(95,72,48,.85)';
+  cx.fillRect(sx, sy, 22, 2);
+  cx.strokeStyle = 'rgba(40,30,22,.7)'; cx.lineWidth = 1;
+  cx.beginPath();
+  cx.moveTo(sx+7, sy);
+  cx.quadraticCurveTo(sx+11, sy-4, sx+15, sy);
+  cx.stroke();
+  cx.fillStyle = 'rgba(180,140,82,.55)';
+  cx.fillRect(sx+10, sy+6, 2, 1.5);
+}
+
+/* ─────────────────────────────────────
+   PLATFORM LAMP
+───────────────────────────────────── */
+function drawLamp(){
+  const cB = H*L.canopyBot;
+  const pT = H*L.platformTop;
+  const lx = W*.31;
+  const cableLen = H*.16;
+  const sway = Math.sin(t*.4)*1.4;
+  const ly = cB + cableLen;
+  const warm = P().lampWarm;
+
+  lampTick++;
+  if(lampTick >= lampNext){
+    lampOn = lampOn===1?0:1; lampTick=0;
+    lampNext = lampOn===0 ? 2+Math.random()*10 : 240+Math.random()*420;
+  }
+  const gA = lampOn * (.8 + Math.sin(t*3.6)*.2) * warm;
+
+  cx.strokeStyle = 'rgba(70,80,96,.55)'; cx.lineWidth=1.1;
+  cx.beginPath(); cx.moveTo(lx, cB); cx.lineTo(lx+sway*.5, ly); cx.stroke();
+
+  cx.save();
+  cx.translate(lx + sway*.5, ly);
+  cx.fillStyle='rgba(28,36,48,.96)';
+  cx.fillRect(-7, -4, 14, 2.5);
+  cx.beginPath();
+  cx.moveTo(-7, -1.5); cx.lineTo(7, -1.5);
+  cx.lineTo(5, 11); cx.lineTo(-5, 11);
+  cx.closePath(); cx.fill();
+  cx.fillStyle='rgba(20,26,38,.97)';
+  cx.fillRect(-1.5, 11, 3, 3);
+
+  if(gA > .04){
+    const coneW = W*.26;
+    const cg2 = cx.createLinearGradient(0, 4, 0, pT-ly+4);
+    cg2.addColorStop(0, `rgba(225,200,135,${Math.min(.4, gA*.22)})`);
+    cg2.addColorStop(.6, `rgba(218,190,118,${Math.min(.18, gA*.06)})`);
+    cg2.addColorStop(1, 'transparent');
+    cx.fillStyle = cg2;
+    cx.beginPath();
+    cx.moveTo(-5, 4); cx.lineTo(5, 4);
+    cx.lineTo(coneW*.5, pT-ly+4); cx.lineTo(-coneW*.5, pT-ly+4);
+    cx.closePath(); cx.fill();
+
+    const ag = cx.createRadialGradient(0,2,0,0,2,60);
+    ag.addColorStop(0, `rgba(232,206,138,${Math.min(.7, gA*.45)})`);
+    ag.addColorStop(.4, `rgba(220,195,118,${Math.min(.25, gA*.15)})`);
+    ag.addColorStop(1,'transparent');
+    cx.fillStyle = ag;
+    cx.beginPath(); cx.arc(0, 2, 60, 0, Math.PI*2); cx.fill();
+
+    cx.fillStyle = `rgba(248,235,180,${Math.min(1, gA)})`;
+    cx.beginPath(); cx.ellipse(0, 3, 3, 5, 0, 0, Math.PI*2); cx.fill();
+  }
+  cx.restore();
+
+  if(gA > .04){
+    const pool = cx.createRadialGradient(lx, pT+1, 0, lx, pT+1, W*.14);
+    pool.addColorStop(0, `rgba(225,200,135,${Math.min(.18, gA*.1)})`);
+    pool.addColorStop(1, 'transparent');
+    cx.fillStyle = pool;
+    cx.beginPath();
+    cx.ellipse(lx, pT+1, W*.14, W*.022, 0, 0, Math.PI*2); cx.fill();
+  }
+}
+
+/* ─────────────────────────────────────
+   CLOCK
+───────────────────────────────────── */
+function drawClock(){
+  const cB = H*L.canopyBot;
+  const kcx = W*.69;
+  const kcy = H*.34;
+  const r = Math.min(W,H)*.055;
+  const dark = T.timeOfDay === 'moonlit';
+
+  cx.fillStyle = dark ? 'rgba(40,52,72,.7)' : 'rgba(78,88,102,.55)';
+  cx.fillRect(kcx-2.5, cB, 5, kcy-r-cB);
+  cx.fillStyle = dark ? 'rgba(20,28,40,.85)' : 'rgba(58,68,82,.78)';
+  cx.fillRect(kcx-5, kcy-r-3, 10, 3);
+
+  cx.beginPath(); cx.arc(kcx,kcy,r,0,Math.PI*2);
+  cx.fillStyle = dark ? 'rgba(200,210,225,.88)' : 'rgba(228,222,210,.92)';
+  cx.fill();
+  cx.strokeStyle = 'rgba(88,98,115,.55)'; cx.lineWidth=2; cx.stroke();
+  cx.beginPath(); cx.arc(kcx,kcy,r,0,Math.PI*2);
+  cx.strokeStyle = 'rgba(180,140,82,.25)'; cx.lineWidth=3; cx.stroke();
+
+  for(let i=0;i<12;i++){
+    const a = (i/12)*Math.PI*2 - Math.PI*.5;
+    const isMain = i%3===0;
+    const inner = isMain ? r*.7 : r*.82;
+    cx.beginPath();
+    cx.moveTo(kcx+Math.cos(a)*inner, kcy+Math.sin(a)*inner);
+    cx.lineTo(kcx+Math.cos(a)*(r-2.5), kcy+Math.sin(a)*(r-2.5));
+    cx.strokeStyle = `rgba(55,65,75,${isMain?.62:.34})`;
+    cx.lineWidth = isMain?2:.9; cx.stroke();
+  }
+
+  clockTick++;
+  if(clockTick%220===0){
+    const rnd = Math.random();
+    if(rnd<.18)      clockSpeed = .04+Math.random()*.1;
+    else if(rnd<.40) clockSpeed = .3+Math.random()*.45;
+    else if(rnd<.65) clockSpeed = 1+Math.random()*1.2;
+    else if(rnd<.80) clockSpeed = 3+Math.random()*5;
+    else if(rnd<.90) clockSpeed = 8+Math.random()*12;
+    else             clockSpeed = -(.4+Math.random()*.8);
+  }
+  clockAngle += clockSpeed*.0028;
+
+  const hA = clockAngle*.0833 - Math.PI*.5;
+  cx.beginPath();
+  cx.moveTo(kcx,kcy);
+  cx.lineTo(kcx+Math.cos(hA)*r*.5, kcy+Math.sin(hA)*r*.5);
+  cx.strokeStyle='rgba(38,45,55,.82)'; cx.lineWidth=2.8; cx.lineCap='round'; cx.stroke();
+
+  const mA = clockAngle - Math.PI*.5;
+  cx.beginPath();
+  cx.moveTo(kcx,kcy);
+  cx.lineTo(kcx+Math.cos(mA)*r*.72, kcy+Math.sin(mA)*r*.72);
+  cx.strokeStyle='rgba(38,45,55,.7)'; cx.lineWidth=1.7; cx.stroke();
+
+  cx.beginPath(); cx.arc(kcx,kcy,2.6,0,Math.PI*2);
+  cx.fillStyle='rgba(45,52,62,.85)'; cx.fill();
+  cx.beginPath(); cx.arc(kcx,kcy,1,0,Math.PI*2);
+  cx.fillStyle='rgba(180,140,82,.6)'; cx.fill();
+}
+
+/* ─────────────────────────────────────
+   TRAIN — minimal pill silhouette
+───────────────────────────────────── */
+function trainTopY(){ return H*L.platformTop - TRAIN.height; }
+
+function drawHeadlight(){
+  if(TRAIN.headlight <= 0.01) return;
+  const pT = H*L.platformTop;
+  const beamY = pT - TRAIN.height*.5;
+  // Beam direction depends on dir (where train is coming from)
+  const dir = TRAIN.dir || 1;
+  const ox = TRAIN.x - dir*(TRAIN.width*.5 + 24); // beam exits from leading end
+  const a = TRAIN.headlight;
+  const reach = Math.min(W*.55, 420);
+
+  const bg = cx.createLinearGradient(ox, beamY, ox - dir*reach, beamY);
+  bg.addColorStop(0, `rgba(245,250,255,${a*.4})`);
+  bg.addColorStop(.4,`rgba(220,228,240,${a*.14})`);
+  bg.addColorStop(1, 'transparent');
+  cx.fillStyle = bg;
+  cx.beginPath();
+  cx.moveTo(ox, beamY-2);
+  cx.lineTo(ox - dir*reach, beamY - TRAIN.height*.5);
+  cx.lineTo(ox - dir*reach, beamY + TRAIN.height*.5);
+  cx.lineTo(ox, beamY+2);
+  cx.closePath();
+  cx.fill();
+
+  const rg = cx.createRadialGradient(ox, beamY, 0, ox, beamY, 32);
+  rg.addColorStop(0, `rgba(245,250,255,${a*.8})`);
+  rg.addColorStop(1, 'transparent');
+  cx.fillStyle = rg;
+  cx.beginPath(); cx.arc(ox, beamY, 32, 0, Math.PI*2); cx.fill();
+}
+
+/**
+ * Draw a clean train silhouette.
+ * A horizontally-elongated capsule with a continuous window band.
+ * NO wheel circles (they're hidden beneath platform front).
+ * Front (leading) end is slightly tapered.
+ */
+function drawTrainBody(xCenter, opacity, isRush, dir){
+  const top = trainTopY();
+  const w = TRAIN.width;
+  const h = TRAIN.height;
+  const left = xCenter - w/2;
+  const right = xCenter + w/2;
+  const isMoon = T.timeOfDay === 'moonlit';
+
+  // CAPSULE with tapered leading nose
+  const r = h*.42;       // big rounded ends -> capsule
+  const noseTaper = h*.16; // how much the leading nose pulls in
+  cx.save();
+  cx.beginPath();
+  if(dir > 0){
+    // moving right → right end (leading) tapered slightly more
+    cx.moveTo(left + r, top);
+    cx.lineTo(right - r - noseTaper, top + noseTaper*.4);
+    cx.quadraticCurveTo(right, top + h*.5 - noseTaper*.6, right - r - noseTaper, top + h - noseTaper*.4);
+    cx.lineTo(left + r, top + h);
+    cx.quadraticCurveTo(left, top + h, left, top + h - r);
+    cx.lineTo(left, top + r);
+    cx.quadraticCurveTo(left, top, left + r, top);
+  } else {
+    cx.moveTo(left + r + noseTaper, top + noseTaper*.4);
+    cx.lineTo(right - r, top);
+    cx.quadraticCurveTo(right, top, right, top + r);
+    cx.lineTo(right, top + h - r);
+    cx.quadraticCurveTo(right, top + h, right - r, top + h);
+    cx.lineTo(left + r + noseTaper, top + h - noseTaper*.4);
+    cx.quadraticCurveTo(left, top + h*.5 + noseTaper*.6, left + r + noseTaper, top + noseTaper*.4);
+  }
+  cx.closePath();
+
+  // body fill — gradient
+  const bg = cx.createLinearGradient(0, top, 0, top+h);
+  if(isMoon){
+    bg.addColorStop(0,   `rgba(28,36,52,${opacity})`);
+    bg.addColorStop(.55, `rgba(38,48,64,${opacity})`);
+    bg.addColorStop(1,   `rgba(20,26,40,${opacity})`);
+  } else {
+    bg.addColorStop(0,   `rgba(38,46,58,${opacity})`);
+    bg.addColorStop(.55, `rgba(52,62,76,${opacity})`);
+    bg.addColorStop(1,   `rgba(28,36,48,${opacity})`);
+  }
+  cx.fillStyle = bg;
+  cx.fill();
+
+  // Top highlight sheen
+  cx.save();
+  cx.clip();
+  const sheen = cx.createLinearGradient(0, top, 0, top+h*.35);
+  sheen.addColorStop(0, `rgba(180,200,222,${opacity*.18})`);
+  sheen.addColorStop(1, 'transparent');
+  cx.fillStyle = sheen;
+  cx.fillRect(left-10, top, w+20, h*.4);
+  cx.restore();
+  cx.restore();
+
+  // WINDOW BAND — a single long, slightly inset dark strip
+  const winInsetX = h*.55;
+  const winY = top + h*.34;
+  const winH = h*.30;
+  const winLeft = left + winInsetX;
+  const winRight = right - winInsetX;
+  // Window band background (very dark)
+  cx.fillStyle = `rgba(10,14,22,${opacity*.92})`;
+  // rounded ends to match
+  cx.beginPath();
+  const wr = winH*.5;
+  cx.moveTo(winLeft + wr, winY);
+  cx.lineTo(winRight - wr, winY);
+  cx.quadraticCurveTo(winRight, winY, winRight, winY + wr);
+  cx.lineTo(winRight, winY + winH - wr);
+  cx.quadraticCurveTo(winRight, winY + winH, winRight - wr, winY + winH);
+  cx.lineTo(winLeft + wr, winY + winH);
+  cx.quadraticCurveTo(winLeft, winY + winH, winLeft, winY + winH - wr);
+  cx.lineTo(winLeft, winY + wr);
+  cx.quadraticCurveTo(winLeft, winY, winLeft + wr, winY);
+  cx.closePath();
+  cx.fill();
+
+  // Subtle reflection / cool inner glow inside windows
+  if(!isRush){
+    const winGlow = cx.createLinearGradient(0, winY, 0, winY+winH);
+    winGlow.addColorStop(0, `rgba(120,150,180,${opacity*.06})`);
+    winGlow.addColorStop(.5, `rgba(160,190,220,${opacity*.13})`);
+    winGlow.addColorStop(1, `rgba(80,108,140,${opacity*.05})`);
+    cx.fillStyle = winGlow;
+    cx.fillRect(winLeft+4, winY+2, (winRight-winLeft)-8, winH-4);
+
+    // Subtle vertical separators
+    const segs = Math.max(4, Math.floor((winRight-winLeft) / (h*.7)));
+    for(let i=1; i<segs; i++){
+      const sx = winLeft + (i / segs) * (winRight - winLeft);
+      cx.fillStyle = `rgba(20,28,42,${opacity*.85})`;
+      cx.fillRect(sx-1, winY+3, 2, winH-6);
+    }
+  } else {
+    // motion-blurred light streak inside windows
+    const wg = cx.createLinearGradient(winLeft, winY, winRight, winY);
+    wg.addColorStop(0, 'transparent');
+    wg.addColorStop(.5, `rgba(180,210,235,${opacity*.18})`);
+    wg.addColorStop(1, 'transparent');
+    cx.fillStyle = wg;
+    cx.fillRect(winLeft+4, winY+winH*.2, (winRight-winLeft)-8, winH*.6);
+  }
+
+  // SKIRT (darker band at bottom, suggests bogies but no wheels)
+  cx.fillStyle = `rgba(14,20,32,${opacity*.85})`;
+  cx.fillRect(left+h*.2, top+h*.88, w-h*.4, h*.12);
+
+  // Subtle door joints (3 evenly spaced very-thin lines)
+  if(!isRush){
+    for(let d=1; d<=2; d++){
+      const dx = left + (d/3) * w;
+      cx.fillStyle = `rgba(15,20,30,${opacity*.4})`;
+      cx.fillRect(dx, top+h*.05, 1, h*.85);
+    }
+  }
+}
+
+function drawTrain(){
+  if(TRAIN.state==='waiting' || TRAIN.state==='approaching') return;
+  const isRush = TRAIN.state==='rushing';
+  const dir = TRAIN.dir;
+
+  // motion trail
+  if(TRAIN.trail.length > 0){
+    const trailCount = isRush ? 9 : 4;
+    for(let i=Math.min(TRAIN.trail.length, trailCount)-1; i>=0; i--){
+      const tp = TRAIN.trail[TRAIN.trail.length-1-i];
+      const decay = (i+1) / trailCount;
+      const a = isRush ? (.28 * decay) : (.10 * decay);
+      drawTrainBody(tp, a, isRush, dir);
+    }
+  }
+
+  // Rushing: long horizontal speed streaks BEHIND train
+  if(isRush){
+    const top = trainTopY();
+    const sd = dir;
+    for(let s=0; s<14; s++){
+      const sy = top + TRAIN.height*(.10 + s*.06);
+      const len = (180 + Math.random()*260) * (1 - s*.025);
+      const sx = TRAIN.x - sd*(TRAIN.width*.42 + s*9);
+      const a = .12 + Math.random()*.1;
+      const sg = cx.createLinearGradient(sx, sy, sx - sd*len, sy);
+      const grayBase = T.timeOfDay==='moonlit' ? '90,108,138' : '55,68,86';
+      sg.addColorStop(0, `rgba(${grayBase},${a})`);
+      sg.addColorStop(1, 'transparent');
+      cx.fillStyle = sg;
+      // draw correct-direction rect
+      const rx = sd > 0 ? Math.min(sx, sx - sd*len) : sx - len;
+      cx.fillRect(rx, sy, len, 1.5);
+    }
+  }
+
+  // Main body
+  drawTrainBody(TRAIN.x, isRush ? .8 : .94, isRush, dir);
+
+  // Air-displacement mist around the train
+  const top = trainTopY();
+  const mistCount = isRush ? 7 : 4;
+  for(let m=0; m<mistCount; m++){
+    const mx = TRAIN.x - TRAIN.width*.5 + (m/(mistCount-1))*TRAIN.width;
+    const my = top + TRAIN.height*(.4 + (Math.sin(t*.5+m)*.2));
+    const mr = (isRush ? 90 : 55) + Math.sin(t*.4+m)*22;
+    const tint = P().fogColor;
+    const mg = cx.createRadialGradient(mx, my, 0, mx, my, mr);
+    mg.addColorStop(0, `rgba(${tint[0]},${tint[1]},${tint[2]},${isRush?.22:.13})`);
+    mg.addColorStop(1, 'transparent');
+    cx.fillStyle = mg;
+    cx.beginPath(); cx.arc(mx, my, mr, 0, Math.PI*2); cx.fill();
+  }
+}
+
+function updateTrain(){
+  TRAIN.tick++;
+
+  if(TRAIN.state==='waiting'){
+    if(TRAIN.tick >= TRAIN.nextIn){
+      TRAIN.tick = 0;
+      setTrainSize();
+      const dir = Math.random()<.5 ? 1 : -1;
+      TRAIN.dir = dir;
+      if(Math.random() < .55){
+        TRAIN.state = 'rushing';
+        TRAIN.x = dir>0 ? -TRAIN.width*.6 : W + TRAIN.width*.6;
+        TRAIN.speed = dir * W * .024;
+        TRAIN.trail = [];
+        TRAIN.headlight = 0;
+        Audio.trainRush();
+      } else {
+        TRAIN.state = 'approaching';
+        TRAIN.dir = 1;       // arriving trains always come from the left
+        TRAIN.headlight = 0;
+        TRAIN.x = -TRAIN.width*.6;
+        TRAIN.speed = 0;
+        Audio.trainApproach();
+      }
+    }
+    return;
+  }
+
+  if(TRAIN.state==='approaching'){
+    TRAIN.headlight = Math.min(1, TRAIN.headlight + .009);
+    if(TRAIN.tick > 240){
+      TRAIN.state = 'arriving';
+      TRAIN.speed = W * .009;
+    }
+    return;
+  }
+
+  if(TRAIN.state==='rushing'){
+    TRAIN.x += TRAIN.speed;
+    TRAIN.trail.push(TRAIN.x);
+    if(TRAIN.trail.length > 14) TRAIN.trail.shift();
+    if((TRAIN.speed > 0 && TRAIN.x > W + TRAIN.width*.6) ||
+       (TRAIN.speed < 0 && TRAIN.x < -TRAIN.width*.6)){
+      TRAIN.state = 'waiting';
+      TRAIN.nextIn = (28 + Math.random()*45)*60;
+      TRAIN.tick = 0;
+      TRAIN.headlight = 0;
+      TRAIN.trail = [];
+    }
+    return;
+  }
+
+  if(TRAIN.state==='arriving'){
+    const stop = W*.5;
+    if(TRAIN.x < stop){
+      TRAIN.speed = Math.max(TRAIN.speed*.972, W*.0007);
+      TRAIN.x += TRAIN.speed;
+      TRAIN.trail.push(TRAIN.x);
+      if(TRAIN.trail.length > 6) TRAIN.trail.shift();
+      TRAIN.headlight = Math.max(0, TRAIN.headlight - .015);
+    } else {
+      TRAIN.x = stop; TRAIN.speed = 0;
+      TRAIN.state = 'present';
+      TRAIN.tick = 0;
+      TRAIN.headlight = 0;
+      TRAIN.trail = [];
+      document.getElementById('panel').classList.add('show');
+    }
+    return;
+  }
+
+  if(TRAIN.state==='present'){
+    if(TRAIN.tick > 540) handleChoice('stay');
+    return;
+  }
+
+  if(TRAIN.state==='departing'){
+    TRAIN.speed += W*.00022;
+    TRAIN.x += TRAIN.speed;
+    TRAIN.trail.push(TRAIN.x);
+    if(TRAIN.trail.length > 8) TRAIN.trail.shift();
+    if(TRAIN.x > W + TRAIN.width*.6){
+      TRAIN.state = 'waiting';
+      TRAIN.nextIn = (32 + Math.random()*50)*60;
+      TRAIN.tick = 0; TRAIN.speed = 0;
+      TRAIN.trail = [];
+    }
+    return;
+  }
+}
+
+/* ─────────────────────────────────────
+   ATMOSPHERE (subtle edge bleed on main canvas)
+───────────────────────────────────── */
+function drawAtmosphere(){
+  const c = P().edgeFog;
+  const lf=cx.createLinearGradient(0,0,W*.22,0);
+  lf.addColorStop(0, c); lf.addColorStop(1,'transparent');
+  cx.fillStyle=lf; cx.fillRect(0,0,W*.22,H);
+  const rf=cx.createLinearGradient(W,0,W*.78,0);
+  rf.addColorStop(0, c); rf.addColorStop(1,'transparent');
+  cx.fillStyle=rf; cx.fillRect(W*.78,0,W*.22,H);
+}
+
+/* ─────────────────────────────────────
+   FOG — flowing, wind-driven, stretched
+───────────────────────────────────── */
+function getWind(){
+  // smoothly time-varying wind (small gusts)
+  return {
+    vx: (.00045 + Math.sin(t*.04)*.00025 + Math.sin(t*.013)*.00018),
+    vy: (-.00004 + Math.cos(t*.025)*.00006),
+  };
+}
+
+function drawFog(){
+  // Smooth cursor follow
+  cur.x += (cur.tx - cur.x) * .18;
+  cur.y += (cur.ty - cur.y) * .18;
+  cur.active += (cur.target - cur.active) * .08;
+
+  fx.clearRect(0,0,W,H);
+
+  const dens = Math.max(.2, Math.min(2, T.fogDensity || 1));
+  const wind = getWind();
+  const tint = P().fogColor;
+  const [tr,tg,tb] = tint;
+
+  fx.globalCompositeOperation = 'source-over';
+
+  // sort by layer to draw back→front
+  for(let li=0; li<3; li++){
+    FOG.filter(p => p.layer === li).forEach(p => {
+      // Apply wind + intrinsic motion
+      const wvx = wind.vx * p.spdMul;
+      const wvy = wind.vy * p.spdMul;
+      p.x += wvx + p.intrinsicVx + Math.sin(t*.18 + p.ph)*p.wobble;
+      p.y = p.baseY + Math.sin(t*.12 + p.ph)*.022;  // sway around baseY
+
+      if(p.x > 1.3){ p.x = -.3; p.baseY = .06 + Math.random()*.84; }
+      if(p.x < -.3){ p.x = 1.3; p.baseY = .06 + Math.random()*.84; }
+
+      const px = p.x*W, py = p.y*H, pr = p.r*W;
+      const a = p.a * dens * (.78 + Math.sin(t*.14 + p.ph)*.22);
+
+      // Stretch ellipse in wind direction (horizontally elongated)
+      const sx = pr * p.stretch;
+      const sy = pr * .55;
+
+      fx.save();
+      fx.translate(px, py);
+      // very slight tilt for organic feel
+      fx.rotate(Math.sin(t*.1 + p.ph)*.04);
+      const gr = fx.createRadialGradient(0, 0, 0, 0, 0, Math.max(sx,sy));
+      gr.addColorStop(0,   `rgba(${tr},${tg},${tb},${Math.min(1,a)})`);
+      gr.addColorStop(.45, `rgba(${tr},${tg},${tb},${Math.min(1,a*.55)})`);
+      gr.addColorStop(1,   'transparent');
+      fx.fillStyle = gr;
+      fx.beginPath();
+      fx.ellipse(0, 0, sx, sy, 0, 0, Math.PI*2);
+      fx.fill();
+      fx.restore();
+    });
+  }
+
+  // Base ambient fog tint (helps unify) — modulated by density
+  fx.fillStyle = `rgba(${tr},${tg},${tb},${.15 * dens})`;
+  fx.fillRect(0,0,W,H);
+
+  // CARVE fog with cursor
+  if(cur.active > .02){
+    const reach = Math.max(.5, Math.min(2.2, T.reach || 1));
+    fx.globalCompositeOperation = 'destination-out';
+    const cR = Math.min(W,H) * .18 * reach;
+    const eg = fx.createRadialGradient(cur.x, cur.y, 0, cur.x, cur.y, cR);
+    eg.addColorStop(0,   `rgba(0,0,0,${cur.active*.95})`);
+    eg.addColorStop(.4,  `rgba(0,0,0,${cur.active*.72})`);
+    eg.addColorStop(.75, `rgba(0,0,0,${cur.active*.32})`);
+    eg.addColorStop(1,   'transparent');
+    fx.fillStyle = eg;
+    fx.beginPath(); fx.arc(cur.x, cur.y, cR, 0, Math.PI*2); fx.fill();
+    fx.globalCompositeOperation = 'source-over';
+  }
+}
+
+/* ─────────────────────────────────────
+   ELIOT opacity reactive to cursor
+───────────────────────────────────── */
+function updateEliot(){
+  const el = document.getElementById('eliot');
+  if(cur.active < .15){
+    el.style.setProperty('--eliot-op', .12);
+    return;
+  }
+  const yFrac = cur.y / H;
+  let op = .15;
+  if(yFrac > .32 && yFrac < .66){
+    const d = Math.abs(yFrac - .48) / .18;
+    op = .95 * (1 - d*d);
+    op = Math.max(.15, Math.min(.95, op));
+  }
+  el.style.setProperty('--eliot-op', op);
+}
+
+/* ─────────────────────────────────────
+   RESPONSES & UI
+───────────────────────────────────── */
+const boardRes=[
+  {zh:'你上了车。\n窗外依然是雾，\n但这次，是流动的雾。', en:'You boarded.\nThe mist outside keeps moving.\nSo do you.', tag:'BOARDED · 乘'},
+  {zh:'列车无声启动。\n你不知道终点，\n也不需要知道。', en:"The train departs without sound.\nYou don't know the destination.\nYou don't have to.", tag:'DEPARTING · 去'},
+  {zh:'有人为你让出靠窗的位置。\n你坐下了，\n然后忘了要去哪里。', en:'Someone gave you the window seat.\nYou sat down,\nthen forgot where you were going.', tag:'IN TRANSIT · 忘'},
+];
+const stayRes=[
+  {zh:'列车离去。\n站台还在。\n你也还在。', en:'The train is gone.\nThe platform remains.\nSo do you.', tag:'STAYED · 留'},
+  {zh:'你选择留下。\n这本身，也是一种到达。', en:'You stayed.\nThat, too, is a kind of arrival.', tag:'ARRIVED · 此'},
+  {zh:'门关上的瞬间，\n你听见了\n自己呼吸的声音。', en:'The moment the doors closed,\nyou heard\nyour own breathing.', tag:'STILL · 静'},
+];
+
+function handleChoice(c){
+  document.getElementById('panel').classList.remove('show');
+  TRAIN.state = 'departing';
+  TRAIN.speed = W*.0008;
+  TRAIN.trail = [];
+  Audio.trainDepart();
+  const arr = c==='board' ? boardRes : stayRes;
+  const r = arr[Math.floor(Math.random()*arr.length)];
+  document.getElementById('rZh').textContent = r.zh;
+  document.getElementById('rEn').textContent = r.en;
+  document.getElementById('rTag').textContent = r.tag;
+  document.getElementById('resp').classList.add('show');
+}
+document.getElementById('boardBtn').onclick=()=>handleChoice('board');
+document.getElementById('stayBtn').onclick =()=>handleChoice('stay');
+document.getElementById('rDis').onclick=()=>document.getElementById('resp').classList.remove('show');
+
+/* ─────────────────────────────────────
+   POEM REVEAL ON CLICK — 4 lines reveal, then 5th click hides all
+───────────────────────────────────── */
+const pLines = ['pl0','pl1','pl2','pl3'];
+let pIdx = 0, poemHidden = false;
+const hint = document.getElementById('hint');
+
+function poemStep(){
+  if(pIdx < pLines.length){
+    // reveal next line
+    document.getElementById(pLines[pIdx]).classList.add('on');
+    pIdx++;
+    if(pIdx >= pLines.length){
+      // last line revealed — hint changes to "click to clear"
+      hint.querySelector('span:last-child').textContent = 'CLICK · 让其消散';
+    }
+    return;
+  }
+  if(!poemHidden){
+    // 5th+ click after full reveal: fade all out, hide hint
+    pLines.forEach(id => document.getElementById(id).classList.remove('on'));
+    hint.style.opacity = '0';
+    poemHidden = true;
+  }
+}
+cv.addEventListener('click', e => {
+  if(document.getElementById('panel').classList.contains('show')) return;
+  if(document.getElementById('resp').classList.contains('show')) return;
+  poemStep();
+});
+
+/* ─────────────────────────────────────
+   TWEAKS PANEL WIRING
+───────────────────────────────────── */
+const tweaksEl = document.getElementById('tweaks');
+function applyTheme(){
+  document.body.classList.remove('theme-mist','theme-dusk','theme-moonlit');
+  document.body.classList.add('theme-' + T.timeOfDay);
+}
+function syncTweaksUI(){
+  document.getElementById('tkFog').value = T.fogDensity;
+  document.getElementById('tkFogVal').textContent = (+T.fogDensity).toFixed(1);
+  document.getElementById('tkReach').value = T.reach;
+  document.getElementById('tkReachVal').textContent = (+T.reach).toFixed(1);
+}
+function setTweak(key, val){
+  T[key] = val;
+  if(key === 'timeOfDay') { applyTheme(); rebuildStars(); syncHourUI(); }
+  syncTweaksUI();
+  try {
+    window.parent.postMessage({type:'__edit_mode_set_keys', edits:{[key]: val}}, '*');
+  } catch(_){}
+}
+document.getElementById('tkClose').onclick = () => {
+  tweaksEl.classList.remove('show');
+  try { window.parent.postMessage({type:'__edit_mode_dismissed'}, '*'); } catch(_){}
+};
+document.getElementById('tkFog').oninput = (e) => setTweak('fogDensity', +e.target.value);
+document.getElementById('tkReach').oninput = (e) => setTweak('reach', +e.target.value);
+
+window.addEventListener('message', e => {
+  if(!e.data) return;
+  if(e.data.type === '__activate_edit_mode'){ tweaksEl.classList.add('show'); }
+  else if(e.data.type === '__deactivate_edit_mode'){ tweaksEl.classList.remove('show'); }
+});
+try {
+  window.parent.postMessage({type:'__edit_mode_available'}, '*');
+} catch(_){}
+
+applyTheme();
+syncTweaksUI();
+
+/* Product UI: HOUR selector (visible on download too) */
+function syncHourUI(){
+  document.querySelectorAll('#hour button').forEach(b => {
+    b.classList.toggle('on', b.dataset.v === T.timeOfDay);
+  });
+}
+document.querySelectorAll('#hour button').forEach(b => {
+  b.onclick = () => setTweak('timeOfDay', b.dataset.v);
+});
+syncHourUI();
+
+/* Body classes so hour/audio controls hide when train panel/resp is open */
+const _panelEl = document.getElementById('panel');
+const _respEl  = document.getElementById('resp');
+function _syncBodyClasses(){
+  document.body.classList.toggle('panel-open', _panelEl.classList.contains('show'));
+  document.body.classList.toggle('resp-open',  _respEl.classList.contains('show'));
+}
+new MutationObserver(_syncBodyClasses).observe(_panelEl, {attributes:true, attributeFilter:['class']});
+new MutationObserver(_syncBodyClasses).observe(_respEl,  {attributes:true, attributeFilter:['class']});
+
+/* ─────────────────────────────────────
+   AUDIO — procedural wind + train sounds
+   (no external assets; works offline)
+───────────────────────────────────── */
+const Audio = (function(){
+  let ctx = null, master = null;
+  let windNoise=null, windFilter=null, windLFO=null, windGain=null;
+  let started = false;
+  let enabled = false;
+  const noiseBuffers = {};
+
+  function ensureCtx(){
+    if(ctx) return ctx;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return null;
+    ctx = new AC();
+    master = ctx.createGain();
+    master.gain.value = 0;     // start silent; ramp on enable
+    master.connect(ctx.destination);
+    return ctx;
+  }
+
+  function makeNoiseBuffer(kind){
+    if(noiseBuffers[kind]) return noiseBuffers[kind];
+    const len = 2 * ctx.sampleRate;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    if(kind === 'brown'){
+      let last = 0;
+      for(let i=0;i<len;i++){
+        const w = Math.random()*2-1;
+        last = (last + 0.02*w) / 1.02;
+        d[i] = last * 3.2;
+      }
+    } else if(kind === 'pink'){
+      // Voss-McCartney approx
+      let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+      for(let i=0;i<len;i++){
+        const w = Math.random()*2-1;
+        b0 = .99886*b0 + w*.0555179;
+        b1 = .99332*b1 + w*.0750759;
+        b2 = .96900*b2 + w*.1538520;
+        b3 = .86650*b3 + w*.3104856;
+        b4 = .55000*b4 + w*.5329522;
+        b5 = -.7616*b5 - w*.0168980;
+        d[i] = (b0+b1+b2+b3+b4+b5+b6+w*.5362)*.11;
+        b6 = w*.115926;
+      }
+    } else { // white
+      for(let i=0;i<len;i++) d[i] = Math.random()*2-1;
+    }
+    noiseBuffers[kind] = buf;
+    return buf;
+  }
+
+  function startWind(){
+    if(windNoise) return;
+    const buf = makeNoiseBuffer('brown');
+    windNoise = ctx.createBufferSource();
+    windNoise.buffer = buf;
+    windNoise.loop = true;
+
+    windFilter = ctx.createBiquadFilter();
+    windFilter.type = 'bandpass';
+    windFilter.frequency.value = 480;
+    windFilter.Q.value = .9;
+
+    // Second filter for warmth (lowpass shelf)
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1200;
+    lp.Q.value = .3;
+
+    // Gentle LFO on the bandpass freq for "howl"
+    windLFO = ctx.createOscillator();
+    windLFO.frequency.value = 0.09;
+    const lfoG = ctx.createGain();
+    lfoG.gain.value = 220;
+    windLFO.connect(lfoG); lfoG.connect(windFilter.frequency);
+
+    // Slow amplitude LFO (gusts)
+    const ampLFO = ctx.createOscillator();
+    ampLFO.frequency.value = 0.055;
+    const ampLFOG = ctx.createGain();
+    ampLFOG.gain.value = 0.5;
+    ampLFO.connect(ampLFOG);
+
+    windGain = ctx.createGain();
+    windGain.gain.value = 0.7;
+    ampLFOG.connect(windGain.gain);  // modulates ~ ±0.5 around .7
+
+    windNoise.connect(windFilter);
+    windFilter.connect(lp);
+    lp.connect(windGain);
+    windGain.connect(master);
+
+    windNoise.start();
+    windLFO.start();
+    ampLFO.start();
+  }
+
+  function init(){
+    if(started) return;
+    if(!ensureCtx()) return;
+    if(ctx.state === 'suspended') ctx.resume();
+    startWind();
+    started = true;
+  }
+
+  function setEnabled(on){
+    enabled = on;
+    if(!ctx) ensureCtx();
+    if(!ctx) return;
+    if(on){
+      if(!started) init();
+      if(ctx.state === 'suspended') ctx.resume();
+      const now = ctx.currentTime;
+      master.gain.cancelScheduledValues(now);
+      master.gain.setValueAtTime(master.gain.value, now);
+      master.gain.linearRampToValueAtTime(0.42, now + 1.8);
+    } else if(master){
+      const now = ctx.currentTime;
+      master.gain.cancelScheduledValues(now);
+      master.gain.setValueAtTime(master.gain.value, now);
+      master.gain.linearRampToValueAtTime(0, now + 0.9);
+    }
+  }
+
+  /* Train arrival: distant rumble approaching, then air-brake hiss */
+  function trainApproach(){
+    if(!enabled || !ctx) return;
+    const now = ctx.currentTime;
+    const dur = 7.0; // approach phase
+
+    // Rumble layer — brown noise through resonant lowpass, freq sweep
+    const rNoise = ctx.createBufferSource();
+    rNoise.buffer = makeNoiseBuffer('brown');
+    rNoise.loop = true;
+    const rLP = ctx.createBiquadFilter();
+    rLP.type = 'lowpass';
+    rLP.frequency.value = 90;
+    rLP.Q.value = 4;
+    const rG = ctx.createGain();
+    rG.gain.value = 0;
+    rNoise.connect(rLP); rLP.connect(rG); rG.connect(master);
+
+    rG.gain.setValueAtTime(0, now);
+    rG.gain.linearRampToValueAtTime(0.65, now + 5.0);   // approach (loud as it nears)
+    rG.gain.linearRampToValueAtTime(0.30, now + dur);   // settle at stop
+    rG.gain.linearRampToValueAtTime(0.0,  now + dur + 1.6);
+
+    // Doppler: filter cutoff rises as train approaches
+    rLP.frequency.setValueAtTime(70, now);
+    rLP.frequency.linearRampToValueAtTime(220, now + 5.0);
+    rLP.frequency.linearRampToValueAtTime(140, now + dur);
+
+    rNoise.start(now);
+    rNoise.stop(now + dur + 1.8);
+
+    // High whistle/wheel-on-rail layer — bandpass high freq
+    const hNoise = ctx.createBufferSource();
+    hNoise.buffer = makeNoiseBuffer('pink');
+    hNoise.loop = true;
+    const hBP = ctx.createBiquadFilter();
+    hBP.type = 'bandpass';
+    hBP.frequency.value = 1400;
+    hBP.Q.value = 2.5;
+    const hG = ctx.createGain();
+    hG.gain.value = 0;
+    hNoise.connect(hBP); hBP.connect(hG); hG.connect(master);
+
+    hG.gain.setValueAtTime(0, now);
+    hG.gain.linearRampToValueAtTime(0.10, now + 5.0);
+    hG.gain.linearRampToValueAtTime(0.04, now + dur);
+    hG.gain.linearRampToValueAtTime(0.0,  now + dur + 1.0);
+
+    hBP.frequency.setValueAtTime(900, now);
+    hBP.frequency.linearRampToValueAtTime(2200, now + 5.0);
+    hBP.frequency.linearRampToValueAtTime(1100, now + dur);
+
+    hNoise.start(now);
+    hNoise.stop(now + dur + 1.2);
+
+    // Air-brake hiss right before stop
+    setTimeout(() => {
+      if(!enabled || !ctx) return;
+      const t0 = ctx.currentTime;
+      const sN = ctx.createBufferSource();
+      sN.buffer = makeNoiseBuffer('white');
+      const sHP = ctx.createBiquadFilter();
+      sHP.type = 'highpass'; sHP.frequency.value = 1800; sHP.Q.value = .6;
+      const sG = ctx.createGain();
+      sG.gain.value = 0;
+      sN.connect(sHP); sHP.connect(sG); sG.connect(master);
+      sG.gain.setValueAtTime(0, t0);
+      sG.gain.linearRampToValueAtTime(0.18, t0 + 0.04);
+      sG.gain.exponentialRampToValueAtTime(0.001, t0 + 1.4);
+      sN.start(t0); sN.stop(t0 + 1.5);
+    }, (dur - 1.4) * 1000);
+  }
+
+  /* Train rush-through: quick doppler whoosh */
+  function trainRush(){
+    if(!enabled || !ctx) return;
+    const now = ctx.currentTime;
+    const dur = 3.4;
+
+    const rN = ctx.createBufferSource();
+    rN.buffer = makeNoiseBuffer('brown');
+    rN.loop = true;
+    const rBP = ctx.createBiquadFilter();
+    rBP.type = 'bandpass';
+    rBP.frequency.value = 300;
+    rBP.Q.value = 1.4;
+    const rG = ctx.createGain();
+    rG.gain.value = 0;
+    rN.connect(rBP); rBP.connect(rG); rG.connect(master);
+
+    rG.gain.setValueAtTime(0, now);
+    rG.gain.linearRampToValueAtTime(0.28, now + 1.3);
+    rG.gain.linearRampToValueAtTime(0.0,  now + dur);
+
+    // Doppler sweep
+    rBP.frequency.setValueAtTime(160, now);
+    rBP.frequency.linearRampToValueAtTime(520, now + 1.3);
+    rBP.frequency.linearRampToValueAtTime(110, now + dur);
+
+    rN.start(now); rN.stop(now + dur + .1);
+
+    // Rail-clack layer
+    const hN = ctx.createBufferSource();
+    hN.buffer = makeNoiseBuffer('pink'); hN.loop = true;
+    const hBP = ctx.createBiquadFilter();
+    hBP.type='bandpass'; hBP.frequency.value=1600; hBP.Q.value=2.2;
+    const hG = ctx.createGain(); hG.gain.value=0;
+    hN.connect(hBP); hBP.connect(hG); hG.connect(master);
+    hG.gain.setValueAtTime(0, now);
+    hG.gain.linearRampToValueAtTime(0.08, now + 1.3);
+    hG.gain.linearRampToValueAtTime(0.0,  now + dur);
+    hBP.frequency.setValueAtTime(1000, now);
+    hBP.frequency.linearRampToValueAtTime(2400, now + 1.3);
+    hBP.frequency.linearRampToValueAtTime(900,  now + dur);
+    hN.start(now); hN.stop(now + dur + .1);
+  }
+
+  /* Train departure: rumble fading away */
+  function trainDepart(){
+    if(!enabled || !ctx) return;
+    const now = ctx.currentTime;
+    const dur = 5.5;
+    const rN = ctx.createBufferSource();
+    rN.buffer = makeNoiseBuffer('brown'); rN.loop = true;
+    const rLP = ctx.createBiquadFilter();
+    rLP.type='lowpass'; rLP.frequency.value=180; rLP.Q.value=3;
+    const rG = ctx.createGain(); rG.gain.value=0;
+    rN.connect(rLP); rLP.connect(rG); rG.connect(master);
+
+    rG.gain.setValueAtTime(0, now);
+    rG.gain.linearRampToValueAtTime(0.32, now + 0.6);
+    rG.gain.linearRampToValueAtTime(0.0,  now + dur);
+    rLP.frequency.setValueAtTime(180, now);
+    rLP.frequency.linearRampToValueAtTime(70, now + dur);
+    rN.start(now); rN.stop(now + dur + .1);
+  }
+
+  return { setEnabled, init, trainApproach, trainRush, trainDepart,
+           get enabled(){ return enabled; } };
+})();
+
+/* Audio toggle button */
+const audioTg = document.getElementById('audioTg');
+function refreshAudioUI(){
+  audioTg.classList.toggle('on', Audio.enabled);
+  audioTg.querySelector('.a-lbl').textContent = Audio.enabled ? 'SOUND · 开' : 'SOUND · 关';
+}
+audioTg.addEventListener('click', () => {
+  Audio.setEnabled(!Audio.enabled);
+  refreshAudioUI();
+});
+refreshAudioUI();
+
+/* ─────────────────────────────────────
+   MAIN LOOP
+───────────────────────────────────── */
+function loop(){
+  t += .01;
+  drawBg();
+  drawStars();
+  drawMountains();
+  drawBirds();
+  drawHeadlight();
+  drawStationBack();        // canopy + columns (behind train)
+  drawTrain();              // train passes through middle
+  drawStationFront();       // platform surface + tracks + rails (in front of train wheels-area)
+  drawLamp();
+  drawClock();
+  drawBench();
+  drawAtmosphere();
+  drawFog();
+  updateTrain();
+  updateEliot();
+  requestAnimationFrame(loop);
+}
+loop();
+
+requestAnimationFrame(() => {
+  document.getElementById('veil').classList.add('gone');
+});
+</script>
+</body>
+</html>

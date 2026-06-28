@@ -379,6 +379,7 @@ nav {
 .corner-br { bottom: 20px; right: 20px; border-bottom: 1px solid var(--cyan); border-right: 1px solid var(--cyan); }
 
 </style>
+<script src="page-transition.js"></script>
 </head>
 <body>
 
@@ -415,7 +416,7 @@ nav {
   </div>
 
   <div class="enter-wrap">
-    <a class="enter-btn" href="spirit_map.html">ENTER THE MAP →</a>
+    <a class="enter-btn" href="Spirit Map.html" data-no-transition>ENTER THE MAP →</a>
   </div>
 
 </div>
@@ -445,11 +446,14 @@ setInterval(() => {
   coords.textContent = `${t.getHours().toString().padStart(2,'0')}:${t.getMinutes().toString().padStart(2,'0')}:${t.getSeconds().toString().padStart(2,'0')} · CONSCIOUSNESS ONLINE`;
 }, 1000);
 
-// Smooth ENTER transition — fade everything out, zoom the crystal core, then navigate
+// Smooth ENTER transition — the blue core blooms, then a matching blue
+// veil carries straight into the map (which fades in from the same blue)
 document.querySelector('.enter-btn').addEventListener('click', e => {
   e.preventDefault();
   document.body.classList.add('entering');
-  setTimeout(() => { window.location = 'spirit_map.html'; }, 900);
+  // hand off a deep-void tone so the map fades in gently from the same darkness
+  try { sessionStorage.setItem('__pfInColor', '#03060e'); } catch (err) {}
+  setTimeout(() => { window.location = 'Spirit Map.html'; }, 900);
 });
 </script>
 </body>
