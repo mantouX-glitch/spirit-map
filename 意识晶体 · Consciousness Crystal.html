@@ -290,17 +290,12 @@ function projV(p, scale){
   return { x:x*scale*persp, y:y2*scale*persp, z:z2 };
 }
 
-/* tokenizer: CJK & punctuation -> single glyph, latin/number runs -> word */
 function tokenize(str){
   const out = [];
-  let buf = '';
-  const flush = ()=>{ if(buf){ out.push(buf); buf=''; } };
   for(const ch of str){
-    if(/\s/.test(ch)){ flush(); continue; }
-    if(/[A-Za-z0-9'’\-]/.test(ch)){ buf += ch; }
-    else { flush(); out.push(ch); }
+    if(/\s/.test(ch)) continue;
+    out.push(ch);
   }
-  flush();
   return out;
 }
 
